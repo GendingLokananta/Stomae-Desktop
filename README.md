@@ -53,3 +53,8 @@ Database disimpan di folder `data\Stomake.db` di samping EXE. Gunakan tombol **B
 Jangan mengunggah database atau file backup yang berisi naskah pribadi ke repository publik.
 
 Lihat `FEATURES.md` untuk checklist fitur Android yang dipetakan ke PC dan catatan kompatibilitas lintas platform.
+
+
+## Stomake PC 1.0.1 — perbaikan import PySide6
+
+Perbaikan error `cannot import name QGraphicsView from PySide6.QtGui`: kelas `QGraphicsView`, `QGraphicsScene`, dan `QGraphicsRectItem` sekarang diimpor dari `PySide6.QtWidgets`, sedangkan `QPainter` dan `QPixmap` tetap dari `PySide6.QtGui`. GitHub Actions juga menjalankan pemeriksaan import grafis sebelum PyInstaller.

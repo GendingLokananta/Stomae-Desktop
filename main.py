@@ -9,7 +9,7 @@ from pathlib import Path
 import requests
 
 from PySide6.QtCore import Qt, QTimer, QThread, Signal, QUrl, QSettings, QByteArray, QBuffer, QIODevice
-from PySide6.QtGui import QDesktopServices, QTextCharFormat, QTextListFormat, QFont, QShortcut, QKeySequence, QColor, QPixmap, QTextImageFormat, QTextDocument, QPen, QGraphicsView, QGraphicsScene, QPainter
+from PySide6.QtGui import QDesktopServices, QTextCharFormat, QTextListFormat, QFont, QShortcut, QKeySequence, QColor, QPixmap, QTextImageFormat, QTextDocument, QPen, QPainter
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFrame, QLabel,
     QPushButton, QTextEdit, QVBoxLayout, QHBoxLayout,
@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QComboBox, QDialog, QFormLayout,
     QLineEdit, QDialogButtonBox, QMenu, QFileDialog, QStackedWidget,
     QTabWidget, QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView,
-    QDateEdit, QSpinBox, QGroupBox, QScrollArea, QMenuBar, QToolButton, QGraphicsRectItem
+    QDateEdit, QSpinBox, QGroupBox, QScrollArea, QMenuBar, QToolButton, QGraphicsView, QGraphicsScene, QGraphicsRectItem
 )
 
 # =========================

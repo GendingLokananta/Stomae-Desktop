@@ -1,2 +1,2 @@
-Stomake PC 1.0.0
-Desktop parity port based on Stomake Android feature set.
+Stomake PC 1.0.1
+Qt import fix for QGraphics classes.
