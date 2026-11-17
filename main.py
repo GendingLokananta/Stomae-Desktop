@@ -868,17 +868,19 @@ class Stomake(QMainWindow):
         initial_char_format.setFont(initial_editor_font)
         self.editor.setCurrentCharFormat(initial_char_format)
         self.editor.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
-        self.editor.setMinimumWidth(460)
-        self.editor.setMaximumWidth(860)
+        # Use the whole writing workspace. The previous fixed 860px maximum
+        # width plus two stretch spacers created a narrow, centered text column.
+        # Writers expect the blank page to begin at the left edge of the center
+        # workspace and expand across the available width, as in the Android app.
+        self.editor.setMinimumWidth(0)
+        self.editor.setMaximumWidth(16777215)
 
         editor_canvas = QWidget()
         editor_canvas.setObjectName("editorCanvas")
         editor_canvas_layout = QHBoxLayout(editor_canvas)
-        editor_canvas_layout.setContentsMargins(12, 0, 12, 0)
+        editor_canvas_layout.setContentsMargins(22, 0, 22, 0)
         editor_canvas_layout.setSpacing(0)
-        editor_canvas_layout.addStretch(1)
-        editor_canvas_layout.addWidget(self.editor, 0)
-        editor_canvas_layout.addStretch(1)
+        editor_canvas_layout.addWidget(self.editor, 1)
 
         self.editor.textChanged.connect(self.update_word_count)
         self.editor.cursorPositionChanged.connect(self.update_format_indicators)

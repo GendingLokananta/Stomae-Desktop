@@ -49,3 +49,7 @@ The PC AI provider is Ollama running locally. It does not use Android's Gemini/O
 - Explicit left alignment for a new/empty chapter.
 - Selected font/size also controls the QTextEdit widget placeholder font.
 - Separate maximized reading window with collapsible table-of-contents panel; editor is hidden while reading and restored on close.
+
+
+## V1.0.8 editor layout
+- Full-width text editor aligned to the left of the central writing workspace. The old fixed-width centered editor canvas has been removed.

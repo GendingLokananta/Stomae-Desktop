@@ -97,3 +97,9 @@ Perbaikan error `cannot import name QGraphicsView from PySide6.QtGui`: kelas `QG
 - New and empty chapters are forced to left alignment even if their saved HTML contains an empty paragraph with stale center/justify formatting.
 - The typing cursor and current character format initialize from the selected font and size.
 - Existing chapters that contain text or embedded images keep their saved paragraph alignment.
+
+
+## V1.0.8 — Full-width writing area
+- Writing editor is no longer constrained to a narrow centered 860px column.
+- The writing area starts at the left side of the central workspace and expands to fill the available width between the sidebar and AI panel.
+- Default paragraph alignment remains left; the text column is no longer centered by stretch spacers.
