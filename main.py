@@ -404,8 +404,22 @@ class CropView(QGraphicsView):
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setSceneRect(self.pixmap_item.boundingRect())
-        self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
         self.setMinimumSize(520, 360)
+        self._fit_pending = True
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._fit_pending:
+            self.fitInView(self.pixmap_item.boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
+            self._fit_pending = False
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._fit_pending and self.width() > 0 and self.height() > 0:
+            self.fitInView(self.pixmap_item.boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
+            self._fit_pending = False
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -487,7 +501,7 @@ def crop_image_file(parent, title="Edit Gambar"):
 class Stomake(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Stomake PC 1.0.0 — Ruang Cerita Kreatif")
+        self.setWindowTitle("Stomake PC 1.0.2 — Ruang Cerita Kreatif")
         self.resize(1450, 880)
         self.setMinimumSize(1000, 650)
 
@@ -629,6 +643,12 @@ class Stomake(QMainWindow):
         center_layout.setContentsMargins(18, 16, 18, 14)
         center_layout.setSpacing(12)
         header = QHBoxLayout()
+        self.sidebar_toggle_button = QPushButton("☰")
+        self.sidebar_toggle_button.setObjectName("iconButton")
+        self.sidebar_toggle_button.setFixedSize(34, 34)
+        self.sidebar_toggle_button.setToolTip("Tampilkan / sembunyikan panel Story Bible dan navigasi")
+        self.sidebar_toggle_button.clicked.connect(self.toggle_sidebar)
+        header.addWidget(self.sidebar_toggle_button)
         self.chapter_heading = QLabel("Editor Cerita")
         self.chapter_heading.setObjectName("heading")
         header.addWidget(self.chapter_heading)
@@ -708,14 +728,10 @@ class Stomake(QMainWindow):
         self.font_family_combo = QComboBox()
         # Daftar font umum yang relatif konsisten tersedia di Windows.
         # Menghindari enumerasi font legacy yang memicu warning DirectWrite.
-        self.font_family_combo.addItems([
-            "Arial", "Calibri", "Cambria", "Garamond", "Georgia", "Times New Roman",
-            "Verdana", "Tahoma", "Trebuchet MS", "Segoe UI", "Consolas",
-            "Courier New"
-        ])
-        self.font_family_combo.setCurrentText("Arial")
-        self.font_family_combo.setFixedWidth(120)
-        self.font_family_combo.setFixedHeight(24)
+        self.font_family_combo.addItems(["Garamond", "Times New Roman", "Courier New"])
+        self.font_family_combo.setCurrentText("Garamond")
+        self.font_family_combo.setFixedWidth(150)
+        self.font_family_combo.setFixedHeight(34)
         self.font_family_combo.setToolTip("Pilih jenis huruf")
         self.font_family_combo.currentTextChanged.connect(self.apply_font_family)
         toolbar.addWidget(self.font_family_combo)
@@ -726,7 +742,7 @@ class Stomake(QMainWindow):
         self.font_size_combo = QComboBox()
         self.font_size_combo.setEditable(True)
         self.font_size_combo.setFixedWidth(68)
-        self.font_size_combo.setFixedHeight(24)
+        self.font_size_combo.setFixedHeight(34)
         self.font_size_combo.addItems(["8", "9", "10", "11", "12", "14", "16", "18", "20", "22", "24", "26", "28", "36", "48", "72"])
         self.font_size_combo.setCurrentText("12")
         self.font_size_combo.lineEdit().setText("12")
@@ -735,24 +751,40 @@ class Stomake(QMainWindow):
         self.font_size_combo.lineEdit().returnPressed.connect(self.apply_font_size)
         toolbar.addWidget(self.font_size_combo)
         self.heading_combo = QComboBox()
-        self.heading_combo.addItems(["Paragraph", "H1", "H2", "H3"])
-        self.heading_combo.setFixedWidth(92)
+        self.heading_combo.addItems(["Paragraf", "H1", "H2", "H3"])
+        self.heading_combo.setFixedWidth(76)
+        self.heading_combo.setFixedHeight(34)
         self.heading_combo.setToolTip("Gaya heading")
         self.heading_combo.activated.connect(self.apply_heading_level)
         toolbar.addWidget(self.heading_combo)
         insert_image_button = QPushButton("＋ Gambar")
+        insert_image_button.setFixedHeight(34)
         insert_image_button.setToolTip("Sisipkan gambar ke posisi kursor")
         insert_image_button.clicked.connect(self.insert_chapter_image)
         toolbar.addWidget(insert_image_button)
-        reader_button = QPushButton("Mode Baca")
+        reader_button = QPushButton("Baca ↗")
+        reader_button.setFixedHeight(34)
         reader_button.clicked.connect(self.open_reading_mode)
         toolbar.addWidget(reader_button)
         toolbar.addStretch(1)
-        chapter_page_layout.addLayout(toolbar)
+        toolbar_widget = QWidget()
+        toolbar_widget.setLayout(toolbar)
+        toolbar_scroll = QScrollArea()
+        toolbar_scroll.setObjectName("editorToolbarScroll")
+        toolbar_scroll.setWidgetResizable(True)
+        toolbar_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        toolbar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        toolbar_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        toolbar_scroll.setFixedHeight(48)
+        toolbar_scroll.setWidget(toolbar_widget)
+        chapter_page_layout.addWidget(toolbar_scroll)
 
         self.editor = QTextEdit()
         self.editor.setAcceptRichText(True)
         self.editor.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.editor.setObjectName("mediumEditor")
+        self.editor.setFont(QFont("Garamond", 12))
+        self.editor.setPlaceholderText("Mulai tulis ceritamu di sini...")
         
         self.editor.textChanged.connect(self.update_word_count)
         self.editor.cursorPositionChanged.connect(self.update_format_indicators)
@@ -953,6 +985,15 @@ class Stomake(QMainWindow):
         self._focus_ai_was_visible = True
         QShortcut(QKeySequence("Ctrl+Shift+A"), self, activated=self.toggle_ai_panel)
         QShortcut(QKeySequence("Ctrl+Shift+F"), self, activated=self.toggle_focus_mode)
+
+    def toggle_sidebar(self):
+        """Minimize atau tampilkan navigasi Story Bible di sisi kiri."""
+        if not hasattr(self, "sidebar"):
+            return
+        self.sidebar.setVisible(not self.sidebar.isVisible())
+        self.sidebar_toggle_button.setToolTip(
+            "Sembunyikan panel navigasi" if self.sidebar.isVisible() else "Tampilkan panel navigasi"
+        )
 
     def toggle_ai_panel(self):
         """Tampilkan/sembunyikan AI tanpa mengubah panel lain."""
@@ -2148,13 +2189,42 @@ class Stomake(QMainWindow):
             timeline = conn.execute("SELECT title,event_date,description FROM timeline_events WHERE project_id=? ORDER BY event_date,id", (self.project_id,)).fetchall()
         dialog = QDialog(self)
         dialog.setWindowTitle("Mode Baca — " + project[0])
-        dialog.resize(1100, 780)
-        layout = QHBoxLayout(dialog)
+        dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowType.Window)
+        dialog.resize(1180, 820)
+        dialog.setMinimumSize(760, 560)
+        layout = QVBoxLayout(dialog)
+        topbar = QHBoxLayout()
+        reader_title = QLabel("✦  " + project[0])
+        reader_title.setObjectName("heading")
+        topbar.addWidget(reader_title, 1)
+        fullscreen_button = QPushButton("⛶ Fullscreen")
+        fullscreen_button.setCheckable(True)
+        def toggle_reader_fullscreen(checked):
+            if checked:
+                dialog.showFullScreen()
+                fullscreen_button.setText("⛶ Keluar Fullscreen")
+            else:
+                dialog.showNormal()
+                fullscreen_button.setText("⛶ Fullscreen")
+        fullscreen_button.clicked.connect(toggle_reader_fullscreen)
+        topbar.addWidget(fullscreen_button)
+        close_reader = QPushButton("Tutup")
+        close_reader.clicked.connect(dialog.close)
+        topbar.addWidget(close_reader)
+        layout.addLayout(topbar)
+        reader_splitter = QSplitter(Qt.Orientation.Horizontal)
         nav = QListWidget()
         nav.setMinimumWidth(260)
         content = QTextEdit()
+        content.setObjectName("readerContent")
         content.setReadOnly(True)
-        layout.addWidget(nav, 1); layout.addWidget(content, 3)
+        content.setAcceptRichText(True)
+        content.document().setDocumentMargin(54)
+        content.setStyleSheet("QTextEdit#readerContent { border: none; padding: 28px 7%; font-size: 16px; line-height: 1.7; }")
+        reader_splitter.addWidget(nav)
+        reader_splitter.addWidget(content)
+        reader_splitter.setSizes([250, 900])
+        layout.addWidget(reader_splitter, 1)
         sections = []
         if project[2]:
             sections.append(("Sampul", f'<div align="center"><img src="data:image/png;base64,{project[2]}" width="340"></div>'))
@@ -2204,7 +2274,11 @@ class Stomake(QMainWindow):
         nav.currentRowChanged.connect(lambda i: content.setHtml(sections[i][1]) if 0 <= i < len(sections) else content.clear())
         if sections:
             nav.setCurrentRow(0)
-        dialog.exec()
+        # Non-modal agar pengguna bisa berpindah ke editor/halaman lain sambil
+        # tetap membiarkan jendela baca terbuka.
+        self.reader_dialog = dialog
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        dialog.show()
 
     def _custom_category_rows(self):
         with db() as conn:
@@ -3328,6 +3402,11 @@ class Stomake(QMainWindow):
             QFormLayout QLabel, QDialog QLabel {{ background: transparent; color: {c['fg']}; }}
             QInputDialog, QMessageBox, QDialog {{ background-color: {c['panel']}; color: {c['fg']}; }}
             QPushButton:hover, QComboBox:hover {{ border-color: {c['accent']}; background: {c['hover']}; }}
+            QComboBox {{ border-radius: 17px; padding: 5px 12px; min-height: 26px; }}
+            QComboBox::drop-down {{ subcontrol-origin: padding; subcontrol-position: right center; width: 28px; border: none; border-radius: 14px; background: {c['hover']}; margin: 3px; }}
+            QComboBox::down-arrow {{ width: 8px; height: 8px; }}
+            QScrollArea#editorToolbarScroll {{ background: transparent; border: none; }}
+            QTextEdit#mediumEditor {{ background: {c['bg']}; border: none; border-radius: 0px; padding: 30px 8%; font-size: 16px; selection-background-color: {c['selection']}; }}
             QPushButton:pressed {{ background: {c['selection']}; }}
             QPushButton:checked {{ background: {c['hover']}; color: {c['fg']}; border: 1px solid {c['accent']}; }}
             QPushButton#primary {{ background: {c['accent']}; color: {c['accent_fg']}; border: 1px solid {c['accent']}; font-weight: 700; }}

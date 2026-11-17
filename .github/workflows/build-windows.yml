@@ -34,10 +34,9 @@ jobs:
           New-Item -ItemType Directory -Force -Path release | Out-Null
           Copy-Item dist/Stomake.exe release/Stomake.exe
           Copy-Item README.md release/README.txt
-          Compress-Archive -Path release/* -DestinationPath Stomake-PC-Windows.zip -Force
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
           name: Stomake-PC-Windows
-          path: Stomake-PC-Windows.zip
+          path: release/
           retention-days: 30

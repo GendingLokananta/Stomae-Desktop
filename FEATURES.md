@@ -16,6 +16,8 @@
 | Version history | Chapter snapshots and restore |
 | Reading mode | Separate reading window for synopsis, chapters, Bible, relationships and timeline |
 | Themes | Dark, Light, Warm Light, Slate; persisted between launches |
+| Android-inspired layout | Left Bible/navigation panel and right Ollama panel can be minimized independently |
+| Medium-style writing / reading | Scrollable formatting toolbar, three requested fonts, separate non-modal reader with fullscreen |
 | AI Assistant | Local Ollama endpoint, model selector, model refresh, story context, saved chat history |
 | Backup / Restore | Copy and restore the complete SQLite database |
 | Android ↔ PC transfer | Import/export Android-compatible single-story `.stomake` JSON format |

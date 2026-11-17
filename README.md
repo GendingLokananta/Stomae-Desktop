@@ -10,6 +10,8 @@ Stomake PC adalah aplikasi desktop Windows berbasis Python + PySide6 + SQLite. V
 - Mode Baca untuk sinopsis, bab, Bible, relasi, dan timeline.
 - Sampul dan sinopsis proyek; gambar utama dan galeri pada entri Bible; crop sebelum memilih gambar.
 - Empat tema: Dark, Light, Warm Light, Slate. Tema disimpan di pengaturan Windows.
+- Panel navigasi kiri dan AI kanan dapat diminimize secara terpisah.
+- Mode baca non-modal di jendela terpisah, mendukung fullscreen dan multitasking.
 - AI Assistant lokal melalui Ollama, pemilih model lokal dan refresh daftar model, konteks proyek, riwayat percakapan yang tersimpan.
 - Backup/Restore database lokal.
 - Export/Import `.stomake` kompatibel dengan format single-story Stomake Android (JSON dengan ekstensi `.stomake`).
