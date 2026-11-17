@@ -9,7 +9,7 @@ from pathlib import Path
 import requests
 
 from PySide6.QtCore import Qt, QTimer, QThread, Signal, QUrl, QSettings, QByteArray, QBuffer, QIODevice
-from PySide6.QtGui import QDesktopServices, QTextCharFormat, QTextListFormat, QFont, QShortcut, QKeySequence, QColor, QPixmap, QTextImageFormat, QTextDocument, QPen, QPainter
+from PySide6.QtGui import QDesktopServices, QTextCharFormat, QTextListFormat, QTextBlockFormat, QFont, QShortcut, QKeySequence, QColor, QPixmap, QTextImageFormat, QTextDocument, QPen, QPainter
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFrame, QLabel,
     QPushButton, QTextEdit, QVBoxLayout, QHBoxLayout,
@@ -501,7 +501,7 @@ def crop_image_file(parent, title="Edit Gambar"):
 class Stomake(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Stomake PC 1.0.2 — Ruang Cerita Kreatif")
+        self.setWindowTitle("Stomake PC 1.0.3 — Ruang Cerita Kreatif")
         self.resize(1450, 880)
         self.setMinimumSize(1000, 650)
 
@@ -524,6 +524,7 @@ class Stomake(QMainWindow):
         self.build_ui()
         self.apply_theme()
         self.load_projects()
+        self.show_home()
 
         self.autosave_timer = QTimer(self)
         self.autosave_timer.timeout.connect(self.save_current_chapter)
@@ -652,6 +653,10 @@ class Stomake(QMainWindow):
         self.chapter_heading = QLabel("Editor Cerita")
         self.chapter_heading.setObjectName("heading")
         header.addWidget(self.chapter_heading)
+        self.home_button = QPushButton("⌂ Beranda")
+        self.home_button.setToolTip("Kembali ke daftar karya")
+        self.home_button.clicked.connect(self.show_home)
+        header.addWidget(self.home_button)
         header.addStretch()
         self.focus_button = QPushButton("◉ Fokus")
         self.focus_button.setToolTip("Aktif/nonaktifkan Focus Writing (Ctrl+Shift+F)")
@@ -675,14 +680,58 @@ class Stomake(QMainWindow):
         # Area tengah memakai halaman bertumpuk: cerita atau detail karakter/latar.
         self.center_stack = QStackedWidget()
         center_layout.addWidget(self.center_stack, 1)
+
+        # Beranda menampilkan semua karya seperti halaman utama Android.
+        self.home_page = QWidget()
+        home_layout = QVBoxLayout(self.home_page)
+        home_layout.setContentsMargins(12, 12, 12, 12)
+        home_layout.setSpacing(14)
+        home_heading = QLabel("Cerita Saya")
+        home_heading.setObjectName("heading")
+        home_heading.setStyleSheet("font-size: 27px; font-weight: 600;")
+        home_layout.addWidget(home_heading)
+        self.home_count_label = QLabel("Karya tersimpan")
+        self.home_count_label.setObjectName("muted")
+        home_layout.addWidget(self.home_count_label)
+        home_actions = QHBoxLayout()
+        create_story_button = QPushButton("＋ Cerita Baru")
+        create_story_button.setObjectName("primary")
+        create_story_button.clicked.connect(self.new_project)
+        home_actions.addWidget(create_story_button)
+        import_story_button = QPushButton("⇧ Import Cerita")
+        import_story_button.clicked.connect(self.import_stomake)
+        home_actions.addWidget(import_story_button)
+        home_actions.addStretch(1)
+        home_layout.addLayout(home_actions)
+        self.home_scroll = QScrollArea()
+        self.home_scroll.setWidgetResizable(True)
+        self.home_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.home_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.home_cards_host = QWidget()
+        self.home_cards_layout = QVBoxLayout(self.home_cards_host)
+        self.home_cards_layout.setContentsMargins(0, 4, 8, 8)
+        self.home_cards_layout.setSpacing(14)
+        self.home_cards_layout.addStretch(1)
+        self.home_scroll.setWidget(self.home_cards_host)
+        home_layout.addWidget(self.home_scroll, 1)
+        self.center_stack.addWidget(self.home_page)
+
         self.chapter_page = QWidget()
         chapter_page_layout = QVBoxLayout(self.chapter_page)
         chapter_page_layout.setContentsMargins(0, 0, 0, 0)
         chapter_page_layout.setSpacing(8)
 
-        toolbar = QHBoxLayout()
-        toolbar.setSpacing(3)
-        toolbar.setContentsMargins(0, 2, 0, 4)
+        # Medium-inspired editor toolbar: split into two clear rows so the
+        # Font / Ukuran / Paragraf controls are never squeezed or clipped.
+        toolbar_host = QWidget()
+        toolbar_host.setObjectName("mediumToolbar")
+        toolbar_host_layout = QVBoxLayout(toolbar_host)
+        toolbar_host_layout.setContentsMargins(0, 0, 0, 2)
+        toolbar_host_layout.setSpacing(6)
+
+        format_row = QHBoxLayout()
+        format_row.setContentsMargins(0, 0, 0, 0)
+        format_row.setSpacing(5)
         self.format_buttons = {}
         for key, label, tooltip in [
             ("bold", "B", "Tebal (Ctrl+B)"),
@@ -695,97 +744,109 @@ class Stomake(QMainWindow):
             button = QPushButton(label)
             button.setToolTip(tooltip)
             button.setCheckable(True)
-            # Compact Word-style toolbar buttons, especially the list controls.
-            button.setFixedSize(24, 24)
-            button.setStyleSheet("QPushButton { padding: 0px; margin: 0px; border-radius: 4px; font-size: 12px; }")
+            button.setFixedSize(34, 32)
             button.setProperty("formatKey", key)
             button.clicked.connect(lambda checked=False, k=key: self.apply_format(k))
             self.format_buttons[key] = button
-            toolbar.addWidget(button)
+            format_row.addWidget(button)
 
-        separator = QLabel("│")
-        separator.setObjectName("muted")
-        toolbar.addWidget(separator)
+        format_row.addSpacing(8)
         self.alignment_buttons = {}
         for key, label, tooltip in [
-            ("left", "≡", "Rata kiri"),
-            ("center", "☰", "Rata tengah"),
-            ("right", "≡→", "Rata kanan"),
-            ("justify", "☷", "Rata kiri-kanan"),
+            ("left", "☰", "Rata kiri"),
+            ("center", "≡", "Rata tengah"),
+            ("right", "☷", "Rata kanan"),
+            ("justify", "▤", "Rata kiri-kanan"),
         ]:
             button = QPushButton(label)
             button.setToolTip(tooltip)
             button.setCheckable(True)
-            button.setFixedSize(24, 24)
-            button.setStyleSheet("QPushButton { padding: 0px; margin: 0px; border-radius: 4px; font-size: 11px; }")
+            button.setFixedSize(34, 32)
             button.clicked.connect(lambda checked=False, k=key: self.apply_alignment(k))
             self.alignment_buttons[key] = button
-            toolbar.addWidget(button)
+            format_row.addWidget(button)
+        format_row.addStretch(1)
+
+        controls_row = QHBoxLayout()
+        controls_row.setContentsMargins(0, 0, 0, 0)
+        controls_row.setSpacing(8)
 
         font_label = QLabel("Font")
-        font_label.setStyleSheet("font-size: 11px; padding: 0px;")
-        toolbar.addWidget(font_label)
+        font_label.setObjectName("toolbarLabel")
+        controls_row.addWidget(font_label)
         self.font_family_combo = QComboBox()
-        # Daftar font umum yang relatif konsisten tersedia di Windows.
-        # Menghindari enumerasi font legacy yang memicu warning DirectWrite.
         self.font_family_combo.addItems(["Garamond", "Times New Roman", "Courier New"])
         self.font_family_combo.setCurrentText("Garamond")
-        self.font_family_combo.setFixedWidth(150)
-        self.font_family_combo.setFixedHeight(34)
+        self.font_family_combo.setMinimumWidth(150)
+        self.font_family_combo.setMaximumWidth(190)
+        self.font_family_combo.setFixedHeight(36)
         self.font_family_combo.setToolTip("Pilih jenis huruf")
         self.font_family_combo.currentTextChanged.connect(self.apply_font_family)
-        toolbar.addWidget(self.font_family_combo)
+        controls_row.addWidget(self.font_family_combo)
 
-        size_label = QLabel("Uk.")
-        size_label.setStyleSheet("font-size: 11px; padding: 0px;")
-        toolbar.addWidget(size_label)
+        size_label = QLabel("Ukuran")
+        size_label.setObjectName("toolbarLabel")
+        controls_row.addWidget(size_label)
         self.font_size_combo = QComboBox()
         self.font_size_combo.setEditable(True)
-        self.font_size_combo.setFixedWidth(68)
-        self.font_size_combo.setFixedHeight(34)
+        self.font_size_combo.setMinimumWidth(76)
+        self.font_size_combo.setMaximumWidth(88)
+        self.font_size_combo.setFixedHeight(36)
         self.font_size_combo.addItems(["8", "9", "10", "11", "12", "14", "16", "18", "20", "22", "24", "26", "28", "36", "48", "72"])
         self.font_size_combo.setCurrentText("12")
-        self.font_size_combo.lineEdit().setText("12")
         self.font_size_combo.setToolTip("Ukuran font (pt). Pilih atau ketik ukuran lalu tekan Enter")
         self.font_size_combo.activated.connect(self.apply_font_size)
         self.font_size_combo.lineEdit().returnPressed.connect(self.apply_font_size)
-        toolbar.addWidget(self.font_size_combo)
+        controls_row.addWidget(self.font_size_combo)
+
+        paragraph_label = QLabel("Gaya")
+        paragraph_label.setObjectName("toolbarLabel")
+        controls_row.addWidget(paragraph_label)
         self.heading_combo = QComboBox()
         self.heading_combo.addItems(["Paragraf", "H1", "H2", "H3"])
-        self.heading_combo.setFixedWidth(76)
-        self.heading_combo.setFixedHeight(34)
-        self.heading_combo.setToolTip("Gaya heading")
+        self.heading_combo.setMinimumWidth(126)
+        self.heading_combo.setMaximumWidth(150)
+        self.heading_combo.setFixedHeight(36)
+        self.heading_combo.setToolTip("Pilih gaya paragraf seperti Medium")
         self.heading_combo.activated.connect(self.apply_heading_level)
-        toolbar.addWidget(self.heading_combo)
+        controls_row.addWidget(self.heading_combo)
+
         insert_image_button = QPushButton("＋ Gambar")
-        insert_image_button.setFixedHeight(34)
+        insert_image_button.setFixedHeight(36)
         insert_image_button.setToolTip("Sisipkan gambar ke posisi kursor")
         insert_image_button.clicked.connect(self.insert_chapter_image)
-        toolbar.addWidget(insert_image_button)
+        controls_row.addWidget(insert_image_button)
         reader_button = QPushButton("Baca ↗")
-        reader_button.setFixedHeight(34)
+        reader_button.setFixedHeight(36)
         reader_button.clicked.connect(self.open_reading_mode)
-        toolbar.addWidget(reader_button)
-        toolbar.addStretch(1)
-        toolbar_widget = QWidget()
-        toolbar_widget.setLayout(toolbar)
-        toolbar_scroll = QScrollArea()
-        toolbar_scroll.setObjectName("editorToolbarScroll")
-        toolbar_scroll.setWidgetResizable(True)
-        toolbar_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        toolbar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        toolbar_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        toolbar_scroll.setFixedHeight(48)
-        toolbar_scroll.setWidget(toolbar_widget)
-        chapter_page_layout.addWidget(toolbar_scroll)
+        controls_row.addWidget(reader_button)
+        controls_row.addStretch(1)
+
+        toolbar_host_layout.addLayout(format_row)
+        toolbar_host_layout.addLayout(controls_row)
+        chapter_page_layout.addWidget(toolbar_host)
 
         self.editor = QTextEdit()
         self.editor.setAcceptRichText(True)
         self.editor.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.editor.setObjectName("mediumEditor")
         self.editor.setFont(QFont("Garamond", 12))
+        self.editor.document().setDefaultFont(QFont("Garamond", 12))
+        self.editor.document().setDocumentMargin(0)
         self.editor.setPlaceholderText("Mulai tulis ceritamu di sini...")
-        
+        self.editor.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        self.editor.setMinimumWidth(460)
+        self.editor.setMaximumWidth(860)
+
+        editor_canvas = QWidget()
+        editor_canvas.setObjectName("editorCanvas")
+        editor_canvas_layout = QHBoxLayout(editor_canvas)
+        editor_canvas_layout.setContentsMargins(12, 0, 12, 0)
+        editor_canvas_layout.setSpacing(0)
+        editor_canvas_layout.addStretch(1)
+        editor_canvas_layout.addWidget(self.editor, 0)
+        editor_canvas_layout.addStretch(1)
+
         self.editor.textChanged.connect(self.update_word_count)
         self.editor.cursorPositionChanged.connect(self.update_format_indicators)
         self.editor.selectionChanged.connect(self.update_format_indicators)
@@ -795,7 +856,7 @@ class Stomake(QMainWindow):
         # Editor cerita tetap aktif sehingga pengguna bisa menulis sambil membaca referensi.
         self.editor_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.editor_splitter.setChildrenCollapsible(False)
-        self.editor_splitter.addWidget(self.editor)
+        self.editor_splitter.addWidget(editor_canvas)
 
         self.reference_panel = QFrame()
         self.reference_panel.setObjectName("panel")
@@ -914,12 +975,12 @@ class Stomake(QMainWindow):
         ai_layout.setContentsMargins(12, 12, 12, 12)
         ai_layout.setSpacing(8)
         ai_header = QHBoxLayout()
-        ai_title = QLabel("✦ AI Assistant")
+        ai_title = QLabel("✦ AI")
         ai_title.setObjectName("heading")
         ai_header.addWidget(ai_title, 1)
         self.ai_model_combo = QComboBox()
         self.ai_model_combo.setMinimumWidth(150)
-        self.ai_model_combo.addItems(["qwen2.5:3b", "qwen2.5:7b", "llama3.2:3b", "llama3.1:8b", "gemma3:4b", "mistral:7b"])
+        self.ai_model_combo.addItems(["llama3.2:3b", "qwen2.5:3b"])
         stored_model = QSettings("GendingLokananta", "StomakePC").value("ollama_model", MODEL_NAME)
         self.ai_model_combo.setCurrentText(stored_model)
         self.ai_model_combo.currentTextChanged.connect(lambda value: QSettings("GendingLokananta", "StomakePC").setValue("ollama_model", value))
@@ -985,6 +1046,120 @@ class Stomake(QMainWindow):
         self._focus_ai_was_visible = True
         QShortcut(QKeySequence("Ctrl+Shift+A"), self, activated=self.toggle_ai_panel)
         QShortcut(QKeySequence("Ctrl+Shift+F"), self, activated=self.toggle_focus_mode)
+
+    def show_home(self):
+        """Tampilkan beranda berisi kartu semua cerita yang tersimpan."""
+        if self.chapter_id is not None:
+            self.save_current_chapter()
+        self.refresh_home_cards()
+        self.center_stack.setCurrentWidget(self.home_page)
+        self.chapter_heading.setText("Beranda")
+
+    def refresh_home_cards(self):
+        """Bangun ulang kartu karya dari database lokal."""
+        while self.home_cards_layout.count():
+            item = self.home_cards_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        with db() as conn:
+            projects = conn.execute(
+                "SELECT id,title,cover_image,synopsis FROM projects ORDER BY id DESC"
+            ).fetchall()
+        self.home_count_label.setText(f"{len(projects)} cerita tersimpan")
+        for project_id, title, cover_data, synopsis in projects:
+            card = QFrame()
+            card.setObjectName("panel")
+            card.setMinimumHeight(205)
+            card_layout = QHBoxLayout(card)
+            card_layout.setContentsMargins(0, 0, 14, 0)
+            card_layout.setSpacing(0)
+            cover = QLabel()
+            cover.setFixedWidth(155)
+            cover.setMinimumHeight(205)
+            cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            cover.setStyleSheet("background: rgba(140,130,150,0.18); border-top-left-radius: 10px; border-bottom-left-radius: 10px;")
+            pixmap = QPixmap()
+            if cover_data:
+                try:
+                    pixmap.loadFromData(base64.b64decode(cover_data))
+                except Exception:
+                    pass
+            if not pixmap.isNull():
+                cover.setPixmap(pixmap.scaled(155, 205, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation))
+            else:
+                cover.setText("▤\nSampul")
+                cover.setStyleSheet(cover.styleSheet() + " font-size: 22px; color: palette(mid); ")
+            card_layout.addWidget(cover)
+            info = QVBoxLayout()
+            info.setContentsMargins(18, 14, 0, 14)
+            info.setSpacing(9)
+            title_label = QLabel(title)
+            title_label.setObjectName("heading")
+            title_label.setStyleSheet("font-size: 19px; font-weight: 600;")
+            info.addWidget(title_label)
+            synopsis_label = QLabel((synopsis or "Belum ada sinopsis.").strip())
+            synopsis_label.setWordWrap(True)
+            synopsis_label.setObjectName("muted")
+            synopsis_label.setMaximumHeight(68)
+            info.addWidget(synopsis_label, 1)
+            buttons = QHBoxLayout()
+            read_button = QPushButton("▤  Baca")
+            read_button.setObjectName("primary")
+            read_button.clicked.connect(lambda checked=False, pid=project_id: self.open_home_story(pid, read=True))
+            edit_button = QPushButton("✎  Edit")
+            edit_button.clicked.connect(lambda checked=False, pid=project_id: self.open_home_story(pid, read=False))
+            more_button = QPushButton("⋮")
+            more_button.setFixedWidth(38)
+            more_button.setToolTip("Ubah judul, sampul/sinopsis, export, atau hapus cerita")
+            more_button.clicked.connect(lambda checked=False, pid=project_id, anchor=more_button: self.home_project_menu(pid, anchor))
+            buttons.addWidget(read_button)
+            buttons.addWidget(edit_button)
+            buttons.addWidget(more_button)
+            info.addLayout(buttons)
+            card_layout.addLayout(info, 1)
+            self.home_cards_layout.addWidget(card)
+        self.home_cards_layout.addStretch(1)
+        if not projects:
+            empty = QLabel("Belum ada cerita. Klik ‘Cerita Baru’ atau import cerita lama untuk mulai.")
+            empty.setObjectName("muted")
+            empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty.setMinimumHeight(180)
+            self.home_cards_layout.insertWidget(0, empty)
+
+    def open_home_story(self, project_id, read=False):
+        index = self.project_combo.findData(project_id)
+        if index >= 0:
+            self.loading = True
+            self.project_combo.setCurrentIndex(index)
+            self.loading = False
+        self.open_project(project_id)
+        if read:
+            self.open_reading_mode()
+
+    def home_project_menu(self, project_id, anchor):
+        index = self.project_combo.findData(project_id)
+        if index >= 0:
+            self.loading = True
+            self.project_combo.setCurrentIndex(index)
+            self.loading = False
+        self.open_project(project_id)
+        menu = QMenu(self)
+        rename_action = menu.addAction("Ubah Judul")
+        media_action = menu.addAction("Atur Sampul / Sinopsis")
+        export_action = menu.addAction("Export Cerita")
+        menu.addSeparator()
+        delete_action = menu.addAction("Hapus Cerita")
+        chosen = menu.exec(anchor.mapToGlobal(anchor.rect().bottomLeft()))
+        if chosen == rename_action:
+            self.rename_project()
+        elif chosen == media_action:
+            self.edit_project_details()
+        elif chosen == export_action:
+            self.export_stomake()
+        elif chosen == delete_action:
+            self.delete_project()
+        self.refresh_home_cards()
 
     def toggle_sidebar(self):
         """Minimize atau tampilkan navigasi Story Bible di sisi kiri."""
@@ -1954,6 +2129,9 @@ class Stomake(QMainWindow):
         remaining = get_projects()
         if remaining:
             self.load_projects(remaining[0][0])
+        self.refresh_home_cards()
+        if self.center_stack.currentWidget() is self.home_page:
+            self.center_stack.setCurrentWidget(self.home_page)
 
     def rename_project(self):
         if self.project_id is None:
@@ -1978,6 +2156,8 @@ class Stomake(QMainWindow):
             self.project_combo.setItemText(index, self.project_title)
         self.loading = False
         self.save_label.setText("● Judul cerita disimpan")
+        if hasattr(self, "home_cards_layout"):
+            self.refresh_home_cards()
 
     # -------------------------
     # EXPORT CERITA
@@ -2044,6 +2224,8 @@ class Stomake(QMainWindow):
             with db() as conn:
                 conn.execute("UPDATE projects SET cover_image=?, synopsis=? WHERE id=?", (cover, synopsis.toPlainText(), self.project_id))
             self.save_label.setText("● Sampul dan sinopsis tersimpan")
+        if hasattr(self, "home_cards_layout"):
+            self.refresh_home_cards()
 
     def _ensure_import_category(self, section, category):
         category = (category or "Umum").strip() or "Umum"
@@ -2716,17 +2898,39 @@ class Stomake(QMainWindow):
         fmt = QTextCharFormat()
         fmt.setFont(QFont(family))
         self.editor.mergeCurrentCharFormat(fmt)
+        # Placeholder mengikuti font aktif juga, bukan font default widget.
+        current_font = self.editor.font()
+        current_font.setFamily(family)
+        self.editor.setFont(current_font)
+        default_font = self.editor.document().defaultFont()
+        default_font.setFamily(family)
+        self.editor.document().setDefaultFont(default_font)
         self.editor.setFocus()
 
     def apply_heading_level(self, index):
+        # Apply paragraph style to the current block, similar to Medium's
+        # Paragraph / Heading menu, and keep the choice for the next typing.
         sizes = {0: 12, 1: 30, 2: 24, 3: 20}
         size = sizes.get(index, 12)
-        fmt = QTextCharFormat()
-        fmt.setFontPointSize(size)
-        fmt.setFontWeight(QFont.Weight.Bold if index else QFont.Weight.Normal)
         cursor = self.editor.textCursor()
-        cursor.mergeCharFormat(fmt)
-        self.editor.mergeCurrentCharFormat(fmt)
+        block_format = QTextBlockFormat()
+        if index == 0:
+            block_format.setTopMargin(0)
+            block_format.setBottomMargin(12)
+            block_format.setHeadingLevel(0)
+        else:
+            block_format.setTopMargin(22 if index == 1 else 16)
+            block_format.setBottomMargin(10)
+            block_format.setHeadingLevel(index)
+        cursor.mergeBlockFormat(block_format)
+        char_format = QTextCharFormat()
+        char_format.setFontFamily(self.font_family_combo.currentText() or "Garamond")
+        char_format.setFontPointSize(size)
+        char_format.setFontWeight(QFont.Weight.Bold if index else QFont.Weight.Normal)
+        cursor.mergeCharFormat(char_format)
+        self.editor.mergeCurrentCharFormat(char_format)
+        self.editor.setTextCursor(cursor)
+        self.update_format_indicators()
         self.editor.setFocus()
 
     def apply_font_size(self, *_):
@@ -2742,7 +2946,13 @@ class Stomake(QMainWindow):
             return
         fmt = QTextCharFormat()
         fmt.setFontPointSize(size)
+        fmt.setFontFamily(self.font_family_combo.currentText() or "Garamond")
         self.editor.mergeCurrentCharFormat(fmt)
+        base_font = self.editor.font()
+        base_font.setPointSizeF(size)
+        base_font.setFamily(self.font_family_combo.currentText() or "Garamond")
+        self.editor.setFont(base_font)
+        self.editor.document().setDefaultFont(base_font)
         self.update_format_indicators()
         self.editor.setFocus()
 
@@ -2803,6 +3013,18 @@ class Stomake(QMainWindow):
                         self.font_size_combo.setCurrentText(size_text)
                     finally:
                         self.font_size_combo.blockSignals(False)
+
+        if hasattr(self, "heading_combo"):
+            block = cursor.block()
+            heading_level = block.blockFormat().headingLevel()
+            if heading_level not in (1, 2, 3):
+                heading_level = 0
+            if self.heading_combo.currentIndex() != heading_level:
+                self.heading_combo.blockSignals(True)
+                try:
+                    self.heading_combo.setCurrentIndex(heading_level)
+                finally:
+                    self.heading_combo.blockSignals(False)
 
     def update_word_count(self):
         text = self.editor.toPlainText().strip()
@@ -3268,18 +3490,21 @@ class Stomake(QMainWindow):
         dialog.exec()
 
     def refresh_ollama_models(self):
+        """Periksa dua model pilihan tanpa menambahkan model lain ke dropdown."""
+        allowed = ["llama3.2:3b", "qwen2.5:3b"]
         try:
-            response=requests.get("http://localhost:11434/api/tags",timeout=5);response.raise_for_status()
-            names=[item.get("name","") for item in response.json().get("models",[]) if item.get("name")]
-            if not names:
-                QMessageBox.information(self,"Ollama","Belum ada model yang diunduh. Jalankan `ollama pull qwen2.5:3b` terlebih dahulu.")
-                return
-            current=self.ai_model_combo.currentText();self.ai_model_combo.blockSignals(True);self.ai_model_combo.clear();self.ai_model_combo.addItems(names)
-            if current in names:self.ai_model_combo.setCurrentText(current)
-            self.ai_model_combo.blockSignals(False)
-            QMessageBox.information(self,"Ollama",f"{len(names)} model ditemukan.")
+            response = requests.get("http://localhost:11434/api/tags", timeout=5)
+            response.raise_for_status()
+            installed = {item.get("name", "") for item in response.json().get("models", [])}
+            available = [name for name in allowed if name in installed or any(tag.startswith(name + ":") for tag in installed)]
+            missing = [name for name in allowed if name not in available]
+            message = "Model tersedia: " + (", ".join(available) if available else "belum ada")
+            if missing:
+                message += "\nBelum terpasang: " + ", ".join(missing)
+                message += "\nUnduh melalui terminal dengan `ollama pull nama-model`."
+            QMessageBox.information(self, "Model Ollama", message)
         except Exception as exc:
-            QMessageBox.warning(self,"Ollama tidak tersedia",f"Tidak bisa mengambil daftar model. Pastikan Ollama berjalan.\n\n{exc}")
+            QMessageBox.warning(self, "Ollama tidak tersedia", f"Tidak bisa memeriksa model. Pastikan Ollama berjalan.\n\n{exc}")
 
     def backup_restore_menu(self):
         menu=QMenu(self)
@@ -3403,10 +3628,13 @@ class Stomake(QMainWindow):
             QInputDialog, QMessageBox, QDialog {{ background-color: {c['panel']}; color: {c['fg']}; }}
             QPushButton:hover, QComboBox:hover {{ border-color: {c['accent']}; background: {c['hover']}; }}
             QComboBox {{ border-radius: 17px; padding: 5px 12px; min-height: 26px; }}
-            QComboBox::drop-down {{ subcontrol-origin: padding; subcontrol-position: right center; width: 28px; border: none; border-radius: 14px; background: {c['hover']}; margin: 3px; }}
+            QComboBox::drop-down {{ subcontrol-origin: padding; subcontrol-position: right center; width: 26px; height: 26px; border: none; border-radius: 13px; background: {c['hover']}; margin: 4px; }}
             QComboBox::down-arrow {{ width: 8px; height: 8px; }}
-            QScrollArea#editorToolbarScroll {{ background: transparent; border: none; }}
-            QTextEdit#mediumEditor {{ background: {c['bg']}; border: none; border-radius: 0px; padding: 30px 8%; font-size: 16px; selection-background-color: {c['selection']}; }}
+            QComboBox {{ min-height: 30px; padding: 4px 30px 4px 10px; }}
+            QWidget#mediumToolbar {{ background: transparent; border: none; }}
+            QWidget#editorCanvas {{ background: {c['bg']}; border: none; }}
+            QLabel#toolbarLabel {{ background: transparent; color: {c['muted']}; font-size: 12px; font-weight: 600; padding: 0 2px; }}
+            QTextEdit#mediumEditor {{ background: {c['bg']}; color: {c['fg']}; border: none; border-radius: 0px; padding: 52px 68px; font-size: 17px; selection-background-color: {c['selection']}; }}
             QPushButton:pressed {{ background: {c['selection']}; }}
             QPushButton:checked {{ background: {c['hover']}; color: {c['fg']}; border: 1px solid {c['accent']}; }}
             QPushButton#primary {{ background: {c['accent']}; color: {c['accent_fg']}; border: 1px solid {c['accent']}; font-weight: 700; }}

@@ -60,3 +60,11 @@ Lihat `FEATURES.md` untuk checklist fitur Android yang dipetakan ke PC dan catat
 ## Stomake PC 1.0.1 — perbaikan import PySide6
 
 Perbaikan error `cannot import name QGraphicsView from PySide6.QtGui`: kelas `QGraphicsView`, `QGraphicsScene`, dan `QGraphicsRectItem` sekarang diimpor dari `PySide6.QtWidgets`, sedangkan `QPainter` dan `QPixmap` tetap dari `PySide6.QtGui`. GitHub Actions juga menjalankan pemeriksaan import grafis sebelum PyInstaller.
+
+
+## Stomake PC 1.0.4 — Medium-inspired writing editor
+- Formatting toolbar is now split across two rows so Font, Ukuran, and Paragraf/Heading controls remain visible without a horizontal scroll indicator.
+- Toolbar labels use full wording; font family, size, and paragraph style dropdowns have usable widths.
+- Writing column is centered and limited to a comfortable reading width, inspired by Medium.
+- Paragraph / H1 / H2 / H3 applies paragraph block styles and the active style follows the caret.
+- Changing font family or size updates the editor default font as well as the typing format, including the empty-editor placeholder.

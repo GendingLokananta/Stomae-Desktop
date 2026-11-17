@@ -27,3 +27,11 @@
 The Android single-story `.stomake` format currently exports chapter `content` as plain text plus separate image fields. PC rich-text HTML formatting is preserved in the PC database and backup, but paragraph-level formatting may be simplified when a story is transferred through this current Android format. Chapter images are retained and mapped as gallery images on import/export; their exact inline paragraph position may become an image block after the text.
 
 The PC AI provider is Ollama running locally. It does not use Android's Gemini/OpenAI/Groq API-key settings; this is intentional for the desktop build requested to use Ollama.
+
+## Update 1.0.3
+- Added a dedicated Beranda / Cerita Saya page with a cover thumbnail, story title, synopsis, and Baca / Edit actions for every saved project.
+- Added a three-dot project menu for rename, cover/synopsis editing, export, and delete.
+- Startup now opens the Beranda first; choosing Edit opens the writing workspace, while Baca opens reading mode.
+- Removed the visible horizontal scrollbar under the writing toolbar.
+- The editor placeholder follows the selected font family.
+- Renamed the right-side AI panel title to “AI” and limited the model selector to llama3.2:3b and qwen2.5:3b.
