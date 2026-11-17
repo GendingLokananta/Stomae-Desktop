@@ -43,3 +43,9 @@ The PC AI provider is Ollama running locally. It does not use Android's Gemini/O
 - Theme and database backup/restore remain available from the Home settings menu.
 - Card text labels are transparent and have larger internal spacing from the cover.
 - Editor header is compact; import/export and cover/synopsis actions are grouped under “Lainnya”.
+
+
+## V1.0.6 refinements
+- Explicit left alignment for a new/empty chapter.
+- Selected font/size also controls the QTextEdit widget placeholder font.
+- Separate maximized reading window with collapsible table-of-contents panel; editor is hidden while reading and restored on close.

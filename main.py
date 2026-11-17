@@ -501,7 +501,7 @@ def crop_image_file(parent, title="Edit Gambar"):
 class Stomake(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Stomake PC 1.0.5 — Ruang Cerita Kreatif")
+        self.setWindowTitle("Stomake PC 1.0.6 — Ruang Cerita Kreatif")
         self.resize(1450, 880)
         self.setMinimumSize(1000, 650)
 
@@ -853,10 +853,17 @@ class Stomake(QMainWindow):
         self.editor.setAcceptRichText(True)
         self.editor.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.editor.setObjectName("mediumEditor")
-        self.editor.setFont(QFont("Garamond", 12))
-        self.editor.document().setDefaultFont(QFont("Garamond", 12))
+        initial_editor_font = QFont(self.font_family_combo.currentText() or "Garamond", 12)
+        self.editor.setFont(initial_editor_font)
+        self.editor.document().setDefaultFont(initial_editor_font)
         self.editor.document().setDocumentMargin(0)
         self.editor.setPlaceholderText("Mulai tulis ceritamu di sini...")
+        self.editor.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        initial_cursor = self.editor.textCursor()
+        initial_block = QTextBlockFormat()
+        initial_block.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        initial_cursor.mergeBlockFormat(initial_block)
+        self.editor.setTextCursor(initial_cursor)
         self.editor.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         self.editor.setMinimumWidth(460)
         self.editor.setMaximumWidth(860)
@@ -1171,6 +1178,7 @@ class Stomake(QMainWindow):
             self.loading = False
         self.open_project(project_id)
         if read:
+            self._reader_return_home_on_close = True
             self.open_reading_mode()
 
     def home_project_menu(self, project_id, anchor):
@@ -2407,6 +2415,12 @@ class Stomake(QMainWindow):
     def open_reading_mode(self):
         if self.project_id is None:
             return
+        existing = getattr(self, "reader_dialog", None)
+        if existing is not None and existing.isVisible():
+            existing.raise_()
+            existing.activateWindow()
+            return
+
         self.save_current_chapter()
         with db() as conn:
             project = conn.execute("SELECT title,synopsis,cover_image FROM projects WHERE id=?", (self.project_id,)).fetchone()
@@ -2414,18 +2428,30 @@ class Stomake(QMainWindow):
             records = conn.execute("SELECT kind,name,category,details,status,image_data,gallery_data,role FROM story_records WHERE project_id=? ORDER BY kind,name", (self.project_id,)).fetchall()
             rels = conn.execute("SELECT a.name,r.relation,b.name,r.notes FROM character_relationships r JOIN story_records a ON a.id=r.source_id JOIN story_records b ON b.id=r.target_id WHERE r.project_id=?", (self.project_id,)).fetchall()
             timeline = conn.execute("SELECT title,event_date,description FROM timeline_events WHERE project_id=? ORDER BY event_date,id", (self.project_id,)).fetchall()
-        dialog = QDialog(self)
+
+        # A parentless top-level window lets reading mode stand alone. The editor
+        # window is hidden until the reader is closed, so both modes never overlap.
+        dialog = QDialog(None)
+        dialog.setStyleSheet(self.styleSheet())
         dialog.setWindowTitle("Mode Baca — " + project[0])
-        dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowType.Window)
-        dialog.resize(1180, 820)
-        dialog.setMinimumSize(760, 560)
+        dialog.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowMinMaxButtonsHint | Qt.WindowType.WindowCloseButtonHint)
+        dialog.resize(1280, 860)
+        dialog.setMinimumSize(820, 600)
         layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(22, 16, 22, 18)
+        layout.setSpacing(12)
+
         topbar = QHBoxLayout()
         reader_title = QLabel("✦  " + project[0])
         reader_title.setObjectName("heading")
         topbar.addWidget(reader_title, 1)
+        show_contents_button = QPushButton("☰ Daftar Isi")
+        show_contents_button.setCheckable(True)
+        show_contents_button.setChecked(True)
+        topbar.addWidget(show_contents_button)
         fullscreen_button = QPushButton("⛶ Fullscreen")
         fullscreen_button.setCheckable(True)
+
         def toggle_reader_fullscreen(checked):
             if checked:
                 dialog.showFullScreen()
@@ -2433,52 +2459,97 @@ class Stomake(QMainWindow):
             else:
                 dialog.showNormal()
                 fullscreen_button.setText("⛶ Fullscreen")
+
         fullscreen_button.clicked.connect(toggle_reader_fullscreen)
         topbar.addWidget(fullscreen_button)
-        close_reader = QPushButton("Tutup")
+        close_reader = QPushButton("Tutup Mode Baca")
         close_reader.clicked.connect(dialog.close)
         topbar.addWidget(close_reader)
         layout.addLayout(topbar)
+
         reader_splitter = QSplitter(Qt.Orientation.Horizontal)
+        reader_splitter.setChildrenCollapsible(False)
+        nav_panel = QFrame()
+        nav_panel.setObjectName("panel")
+        nav_panel.setMinimumWidth(210)
+        nav_panel.setMaximumWidth(340)
+        nav_layout = QVBoxLayout(nav_panel)
+        nav_layout.setContentsMargins(10, 10, 10, 10)
+        nav_layout.setSpacing(8)
+        nav_header = QHBoxLayout()
+        nav_heading = QLabel("Daftar Isi")
+        nav_heading.setObjectName("heading")
+        nav_header.addWidget(nav_heading, 1)
+        hide_contents_button = QPushButton("×")
+        hide_contents_button.setFixedSize(30, 30)
+        hide_contents_button.setToolTip("Tutup daftar bab")
+        nav_header.addWidget(hide_contents_button)
+        nav_layout.addLayout(nav_header)
         nav = QListWidget()
-        nav.setMinimumWidth(260)
+        nav.setObjectName("readerContentsList")
+        nav_layout.addWidget(nav, 1)
+
         content = QTextEdit()
         content.setObjectName("readerContent")
         content.setReadOnly(True)
         content.setAcceptRichText(True)
-        content.document().setDocumentMargin(54)
-        content.setStyleSheet("QTextEdit#readerContent { border: none; padding: 28px 7%; font-size: 16px; line-height: 1.7; }")
-        reader_splitter.addWidget(nav)
+        content.setFont(QFont("Garamond", 14))
+        content.document().setDefaultFont(QFont("Garamond", 14))
+        content.document().setDocumentMargin(64)
+        content.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        content.setStyleSheet("QTextEdit#readerContent { border: none; padding: 42px 9%; font-family: 'Garamond'; font-size: 14pt; line-height: 1.8; }")
+        reader_splitter.addWidget(nav_panel)
         reader_splitter.addWidget(content)
-        reader_splitter.setSizes([250, 900])
+        reader_splitter.setSizes([270, 950])
         layout.addWidget(reader_splitter, 1)
+
+        def set_contents_visible(visible):
+            nav_panel.setVisible(visible)
+            show_contents_button.setChecked(visible)
+            show_contents_button.setText("☰ Daftar Isi" if not visible else "☰ Daftar Isi ✓")
+            if visible:
+                reader_splitter.setSizes([270, max(700, dialog.width() - 330)])
+            else:
+                reader_splitter.setSizes([0, max(900, dialog.width() - 80)])
+
+        hide_contents_button.clicked.connect(lambda: set_contents_visible(False))
+        show_contents_button.clicked.connect(lambda checked: set_contents_visible(checked))
+
         sections = []
         if project[2]:
             sections.append(("Sampul", f'<div align="center"><img src="data:image/png;base64,{project[2]}" width="340"></div>'))
         if project[1]:
-            sections.append(("Sinopsis", "<html><body>" + "<p>" + project[1].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\\n", "</p><p>") + "</p></body></html>"))
+            synopsis_html = project[1].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "</p><p>")
+            sections.append(("Sinopsis", "<html><body><h1>Sinopsis</h1><p>" + synopsis_html + "</p></body></html>"))
         for index, chapter in enumerate(chapters, 1):
-            html = chapter[2] or "<html><body>" + (chapter[1] or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\\n", "<br>") + "</body></html>"
-            if chapter[3]: html += f'<p><img src="data:image/png;base64,{chapter[3]}" width="440"></p>'
+            html = chapter[2] or "<html><body>" + (chapter[1] or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>") + "</body></html>"
+            if chapter[3]:
+                html += f'<p><img src="data:image/png;base64,{chapter[3]}" width="440"></p>'
             try:
                 for image in json.loads(chapter[4] or "[]"):
-                    if image.get("data"): html += f'<p><img src="data:image/png;base64,{image["data"]}" width="440"></p>'
+                    if image.get("data"):
+                        html += f'<p><img src="data:image/png;base64,{image["data"]}" width="440"></p>'
             except Exception:
                 pass
             sections.append((f"Bab {index} — {chapter[0]}", html))
+
         custom_sections = {f"custom_{cid}": section for cid, section in self._custom_category_rows_with_ids()}
         last_section = None
         for kind, name, category, details, status, image_data, gallery_data, role in records:
             section_key = "story" if kind == "characters" else custom_sections.get(kind, "world")
             if section_key != last_section:
-                sections.append(("Story Bible" if section_key == "story" else "World Bible", f"<html><body><h1>{'Story Bible' if section_key == 'story' else 'World Bible'}</h1></body></html>"))
+                section_title = "Story Bible" if section_key == "story" else "World Bible"
+                sections.append((section_title, f"<html><body><h1>{section_title}</h1></body></html>"))
                 last_section = section_key
             heading = f"{category or kind} — {name}"
             html = "<html><body>" + f"<h2>{name}</h2>"
-            if role or (kind == "characters" and status): html += f"<p><b>Role:</b> {role or status}</p>"
-            if status and status != role: html += f"<p><b>Tag:</b> {status}</p>"
-            html += "<p>" + (details or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\\n", "</p><p>") + "</p>"
-            if image_data: html += f'<p><img src="data:image/png;base64,{image_data}" width="360"></p>'
+            if role or (kind == "characters" and status):
+                html += f"<p><b>Role:</b> {role or status}</p>"
+            if status and status != role:
+                html += f"<p><b>Tag:</b> {status}</p>"
+            html += "<p>" + (details or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "</p><p>") + "</p>"
+            if image_data:
+                html += f'<p><img src="data:image/png;base64,{image_data}" width="360"></p>'
             try:
                 for image in json.loads(gallery_data or "[]"):
                     if image.get("data"):
@@ -2496,16 +2567,30 @@ class Stomake(QMainWindow):
         if timeline:
             timeline_html = "<html><body><h1>Timeline</h1>" + "".join(f"<p><b>{date or 'Tanpa tanggal'} — {title}</b><br>{description}</p>" for title, date, description in timeline) + "</body></html>"
             sections.append(("Timeline", timeline_html))
-        for title, _ in sections:
-            nav.addItem(title)
+
+        for section_title, _ in sections:
+            nav.addItem(section_title)
         nav.currentRowChanged.connect(lambda i: content.setHtml(sections[i][1]) if 0 <= i < len(sections) else content.clear())
         if sections:
             nav.setCurrentRow(0)
-        # Non-modal agar pengguna bisa berpindah ke editor/halaman lain sambil
-        # tetap membiarkan jendela baca terbuka.
-        self.reader_dialog = dialog
+
+        # Return to the same workspace after leaving the standalone reading window.
+        return_home = bool(getattr(self, "_reader_return_home_on_close", False))
+        self._reader_return_home_on_close = False
+
+        def restore_main_window(_result=None):
+            self.reader_dialog = None
+            if return_home:
+                self.show_home()
+            self.showNormal()
+            self.raise_()
+            self.activateWindow()
+
+        dialog.finished.connect(restore_main_window)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-        dialog.show()
+        self.reader_dialog = dialog
+        dialog.showMaximized()
+        self.hide()
 
     def _custom_category_rows(self):
         with db() as conn:
@@ -2727,6 +2812,14 @@ class Stomake(QMainWindow):
             self.editor.setHtml(content_html)
         else:
             self.editor.setPlainText(content or "")
+        if not (content or "").strip() and not (content_html or "").strip():
+            self.editor.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            cursor = self.editor.textCursor()
+            block_format = QTextBlockFormat()
+            block_format.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            cursor.mergeBlockFormat(block_format)
+            self.editor.setTextCursor(cursor)
+            self._sync_editor_default_font()
         self.loading = False
         self.update_format_indicators()
 
@@ -2936,20 +3029,32 @@ class Stomake(QMainWindow):
         self.update_format_indicators()
         self.editor.setFocus()
 
+    def _sync_editor_default_font(self):
+        """Keep the widget, document default, and empty-editor placeholder in sync."""
+        if not hasattr(self, "editor"):
+            return
+        family = self.font_family_combo.currentText() if hasattr(self, "font_family_combo") else "Garamond"
+        raw_size = self.font_size_combo.currentText().strip() if hasattr(self, "font_size_combo") else "12"
+        try:
+            size = max(6.0, min(200.0, float(raw_size)))
+        except (TypeError, ValueError):
+            size = 12.0
+        base_font = QFont(family or "Garamond")
+        base_font.setPointSizeF(size)
+        self.editor.setFont(base_font)
+        self.editor.document().setDefaultFont(base_font)
+        # apply_theme adds the same font family/size to the QTextEdit selector;
+        # Qt stylesheet otherwise overrides QWidget.setFont() for placeholder text.
+        self.apply_theme()
+
     def apply_font_family(self, family):
-        """Apply the selected font family to selected text or future typing."""
+        """Apply the selected font family to selected text, future typing, and placeholder."""
         if not family or not hasattr(self, "editor") or getattr(self, "loading", False):
             return
         fmt = QTextCharFormat()
-        fmt.setFont(QFont(family))
+        fmt.setFontFamily(family)
         self.editor.mergeCurrentCharFormat(fmt)
-        # Placeholder mengikuti font aktif juga, bukan font default widget.
-        current_font = self.editor.font()
-        current_font.setFamily(family)
-        self.editor.setFont(current_font)
-        default_font = self.editor.document().defaultFont()
-        default_font.setFamily(family)
-        self.editor.document().setDefaultFont(default_font)
+        self._sync_editor_default_font()
         self.editor.setFocus()
 
     def apply_heading_level(self, index):
@@ -2993,11 +3098,7 @@ class Stomake(QMainWindow):
         fmt.setFontPointSize(size)
         fmt.setFontFamily(self.font_family_combo.currentText() or "Garamond")
         self.editor.mergeCurrentCharFormat(fmt)
-        base_font = self.editor.font()
-        base_font.setPointSizeF(size)
-        base_font.setFamily(self.font_family_combo.currentText() or "Garamond")
-        self.editor.setFont(base_font)
-        self.editor.document().setDefaultFont(base_font)
+        self._sync_editor_default_font()
         self.update_format_indicators()
         self.editor.setFocus()
 
@@ -3649,6 +3750,11 @@ class Stomake(QMainWindow):
             "Slate": {"bg":"#202630","panel":"#29323e","field":"#222b36","fg":"#e8edf4","muted":"#aab6c5","accent":"#83a8c9","accent_fg":"#17212c","border":"#485667","hover":"#344252","selection":"#405c78"},
         }
         c = palettes.get(theme, palettes["Dark"])
+        editor_family = self.font_family_combo.currentText() if hasattr(self, "font_family_combo") else "Garamond"
+        try:
+            editor_size = float(self.font_size_combo.currentText()) if hasattr(self, "font_size_combo") else 12.0
+        except (TypeError, ValueError):
+            editor_size = 12.0
         self.setStyleSheet(f"""
             QWidget {{ background: {c['bg']}; color: {c['fg']}; font-family: 'Segoe UI'; font-size: 13px; }}
             QLabel {{ background: transparent; color: {c['fg']}; }}
@@ -3684,7 +3790,7 @@ class Stomake(QMainWindow):
             QWidget#mediumToolbar {{ background: transparent; border: none; }}
             QWidget#editorCanvas {{ background: {c['bg']}; border: none; }}
             QLabel#toolbarLabel {{ background: transparent; color: {c['muted']}; font-size: 12px; font-weight: 600; padding: 0 2px; }}
-            QTextEdit#mediumEditor {{ background: {c['bg']}; color: {c['fg']}; border: none; border-radius: 0px; padding: 52px 68px; font-size: 17px; selection-background-color: {c['selection']}; }}
+            QTextEdit#mediumEditor {{ background: {c['bg']}; color: {c['fg']}; border: none; border-radius: 0px; padding: 52px 68px; font-family: '{editor_family}'; font-size: {editor_size}pt; selection-background-color: {c['selection']}; }}
             QPushButton:pressed {{ background: {c['selection']}; }}
             QPushButton:checked {{ background: {c['hover']}; color: {c['fg']}; border: 1px solid {c['accent']}; }}
             QPushButton#primary {{ background: {c['accent']}; color: {c['accent_fg']}; border: 1px solid {c['accent']}; font-weight: 700; }}
