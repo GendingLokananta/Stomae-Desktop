@@ -862,8 +862,11 @@ class Stomake(QMainWindow):
         initial_cursor = self.editor.textCursor()
         initial_block = QTextBlockFormat()
         initial_block.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        initial_cursor.mergeBlockFormat(initial_block)
+        initial_cursor.setBlockFormat(initial_block)
         self.editor.setTextCursor(initial_cursor)
+        initial_char_format = QTextCharFormat()
+        initial_char_format.setFont(initial_editor_font)
+        self.editor.setCurrentCharFormat(initial_char_format)
         self.editor.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         self.editor.setMinimumWidth(460)
         self.editor.setMaximumWidth(860)
@@ -2812,14 +2815,33 @@ class Stomake(QMainWindow):
             self.editor.setHtml(content_html)
         else:
             self.editor.setPlainText(content or "")
-        if not (content or "").strip() and not (content_html or "").strip():
+        # A blank chapter can still contain an empty HTML paragraph carrying
+        # an old center/justify alignment. Detect the truly empty Qt document,
+        # then explicitly reset its paragraph and typing cursor to left.
+        # Do not reset chapters that contain text or embedded images.
+        if self.editor.document().characterCount() <= 1:
             self.editor.setAlignment(Qt.AlignmentFlag.AlignLeft)
             cursor = self.editor.textCursor()
+            cursor.setPosition(0)
             block_format = QTextBlockFormat()
             block_format.setAlignment(Qt.AlignmentFlag.AlignLeft)
-            cursor.mergeBlockFormat(block_format)
+            block_format.setLeftMargin(0)
+            block_format.setRightMargin(0)
+            cursor.setBlockFormat(block_format)
+            typing_format = QTextCharFormat()
+            typing_format.setFontFamily(self.font_family_combo.currentText() or "Garamond")
+            try:
+                typing_size = float(self.font_size_combo.currentText())
+            except (TypeError, ValueError):
+                typing_size = 12.0
+            typing_format.setFontPointSize(typing_size)
+            cursor.setCharFormat(typing_format)
             self.editor.setTextCursor(cursor)
-            self._sync_editor_default_font()
+            self.editor.setCurrentCharFormat(typing_format)
+            self.editor.document().setDefaultFont(QFont(
+                self.font_family_combo.currentText() or "Garamond",
+                int(typing_size),
+            ))
         self.loading = False
         self.update_format_indicators()
 

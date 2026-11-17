@@ -91,3 +91,9 @@ Perbaikan error `cannot import name QGraphicsView from PySide6.QtGui`: kelas `QG
 - The selected font family and size are applied to the editor widget and its placeholder from the start and whenever changed.
 - Reading mode is now a separate standalone, maximized window; the editing window is hidden while reading and restored when the reader closes.
 - Reader table of contents / chapter navigation can be hidden and reopened independently for a distraction-free Medium-like reading view.
+
+
+## 1.0.7 — Default writing alignment fix
+- New and empty chapters are forced to left alignment even if their saved HTML contains an empty paragraph with stale center/justify formatting.
+- The typing cursor and current character format initialize from the selected font and size.
+- Existing chapters that contain text or embedded images keep their saved paragraph alignment.
