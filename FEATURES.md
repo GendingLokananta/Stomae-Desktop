@@ -35,3 +35,11 @@ The PC AI provider is Ollama running locally. It does not use Android's Gemini/O
 - Removed the visible horizontal scrollbar under the writing toolbar.
 - The editor placeholder follows the selected font family.
 - Renamed the right-side AI panel title to “AI” and limited the model selector to llama3.2:3b and qwen2.5:3b.
+
+
+## Home / workbench presentation (1.0.5)
+- Home is a clean story library: editor toolbar, Bible navigation sidebar, and AI panel are hidden while browsing works.
+- Selecting a story restores the previous visibility state of the writing panels.
+- Theme and database backup/restore remain available from the Home settings menu.
+- Card text labels are transparent and have larger internal spacing from the cover.
+- Editor header is compact; import/export and cover/synopsis actions are grouped under “Lainnya”.

@@ -68,3 +68,19 @@ Perbaikan error `cannot import name QGraphicsView from PySide6.QtGui`: kelas `QG
 - Writing column is centered and limited to a comfortable reading width, inspired by Medium.
 - Paragraph / H1 / H2 / H3 applies paragraph block styles and the active style follows the caret.
 - Changing font family or size updates the editor default font as well as the typing format, including the empty-editor placeholder.
+
+
+## Stomake PC 1.0.5 — clean home and cohesive UI
+- Beranda now hides the editor toolbar, left Bible/navigation sidebar, and right AI panel. Opening a story restores the workbench panels to their previous visibility.
+- Home includes a clean Stomake heading and a small settings menu for theme and backup/restore.
+- Editor header actions are shortened and import/export/cover actions are grouped in a Lainnya menu, preventing clipped labels.
+- Story cards have more inner spacing and transparent title/synopsis labels; the global label style is transparent so text no longer appears on awkward rectangular blocks.
+- AI heading blends with the right panel without a separate label background.
+
+
+## Stomake PC 1.0.5 — home library polish
+- The opening screen is now a clean library showing saved works, covers, titles, synopses, and Read/Edit actions. It hides the Bible/sidebar, editing toolbar, and AI panel while on Home.
+- Opening a story restores the left and right workbench panels to their previous visibility.
+- Home settings menu retains theme switching and backup/restore access.
+- Story card title/synopsis text has transparent backgrounds and more breathing room beside the cover.
+- The editor header has shorter controls; import, export, and cover/synopsis actions are grouped under “Lainnya” to prevent clipping.

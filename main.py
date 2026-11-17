@@ -501,7 +501,7 @@ def crop_image_file(parent, title="Edit Gambar"):
 class Stomake(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Stomake PC 1.0.3 — Ruang Cerita Kreatif")
+        self.setWindowTitle("Stomake PC 1.0.5 — Ruang Cerita Kreatif")
         self.resize(1450, 880)
         self.setMinimumSize(1000, 650)
 
@@ -643,10 +643,13 @@ class Stomake(QMainWindow):
         center_layout = QVBoxLayout(center)
         center_layout.setContentsMargins(18, 16, 18, 14)
         center_layout.setSpacing(12)
-        header = QHBoxLayout()
+        self.editor_header = QWidget()
+        header = QHBoxLayout(self.editor_header)
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(8)
         self.sidebar_toggle_button = QPushButton("☰")
         self.sidebar_toggle_button.setObjectName("iconButton")
-        self.sidebar_toggle_button.setFixedSize(34, 34)
+        self.sidebar_toggle_button.setFixedSize(36, 36)
         self.sidebar_toggle_button.setToolTip("Tampilkan / sembunyikan panel Story Bible dan navigasi")
         self.sidebar_toggle_button.clicked.connect(self.toggle_sidebar)
         header.addWidget(self.sidebar_toggle_button)
@@ -657,25 +660,26 @@ class Stomake(QMainWindow):
         self.home_button.setToolTip("Kembali ke daftar karya")
         self.home_button.clicked.connect(self.show_home)
         header.addWidget(self.home_button)
-        header.addStretch()
+        header.addStretch(1)
         self.focus_button = QPushButton("◉ Fokus")
         self.focus_button.setToolTip("Aktif/nonaktifkan Focus Writing (Ctrl+Shift+F)")
         self.focus_button.clicked.connect(self.toggle_focus_mode)
         header.addWidget(self.focus_button)
-        self.ai_toggle_button = QPushButton("Sembunyikan AI")
-        self.ai_toggle_button.setToolTip("Tampilkan atau sembunyikan AI Assistant (Ctrl+Shift+A)")
+        self.ai_toggle_button = QPushButton("AI")
+        self.ai_toggle_button.setToolTip("Tampilkan atau sembunyikan panel AI (Ctrl+Shift+A)")
         self.ai_toggle_button.clicked.connect(self.toggle_ai_panel)
         header.addWidget(self.ai_toggle_button)
-        import_button = QPushButton("⇧ Import .stomake")
-        import_button.clicked.connect(self.import_stomake)
-        header.addWidget(import_button)
-        export_button = QPushButton("⇩ Export Cerita")
-        export_button.clicked.connect(self.show_export_menu)
-        header.addWidget(export_button)
-        project_media_button = QPushButton("Sampul / Sinopsis")
-        project_media_button.clicked.connect(self.edit_project_details)
-        header.addWidget(project_media_button)
-        center_layout.addLayout(header)
+        more_button = QToolButton()
+        more_button.setText("Lainnya  ▾")
+        more_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        more_menu = QMenu(more_button)
+        more_menu.addAction("Import .stomake", self.import_stomake)
+        more_menu.addAction("Export Cerita", self.show_export_menu)
+        more_menu.addSeparator()
+        more_menu.addAction("Sampul / Sinopsis", self.edit_project_details)
+        more_button.setMenu(more_menu)
+        header.addWidget(more_button)
+        center_layout.addWidget(self.editor_header)
 
         # Area tengah memakai halaman bertumpuk: cerita atau detail karakter/latar.
         self.center_stack = QStackedWidget()
@@ -684,8 +688,27 @@ class Stomake(QMainWindow):
         # Beranda menampilkan semua karya seperti halaman utama Android.
         self.home_page = QWidget()
         home_layout = QVBoxLayout(self.home_page)
-        home_layout.setContentsMargins(12, 12, 12, 12)
+        home_layout.setContentsMargins(26, 20, 26, 22)
         home_layout.setSpacing(14)
+        home_topbar = QHBoxLayout()
+        home_brand = QLabel("✦  Stomake")
+        home_brand.setObjectName("logo")
+        home_topbar.addWidget(home_brand)
+        home_topbar.addStretch(1)
+        home_settings_button = QToolButton()
+        home_settings_button.setText("⚙")
+        home_settings_button.setToolTip("Tema dan pengaturan data")
+        home_settings_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        home_settings_menu = QMenu(home_settings_button)
+        theme_menu = home_settings_menu.addMenu("Tema aplikasi")
+        for theme_name in ("Dark", "Light", "Warm Light", "Slate"):
+            theme_action = theme_menu.addAction(theme_name)
+            theme_action.triggered.connect(lambda checked=False, value=theme_name: self.set_theme(value))
+        home_settings_menu.addSeparator()
+        home_settings_menu.addAction("Backup / Restore Data", self.backup_restore_menu)
+        home_settings_button.setMenu(home_settings_menu)
+        home_topbar.addWidget(home_settings_button)
+        home_layout.addLayout(home_topbar)
         home_heading = QLabel("Cerita Saya")
         home_heading.setObjectName("heading")
         home_heading.setStyleSheet("font-size: 27px; font-weight: 600;")
@@ -1042,15 +1065,27 @@ class Stomake(QMainWindow):
         root_layout.addWidget(splitter, 1)
         self.setCentralWidget(root)
         self._last_splitter_sizes = [900, 360]
+        self._home_mode = False
+        self._home_sidebar_was_visible = True
+        self._home_ai_was_visible = True
         self._focus_mode = False
         self._focus_ai_was_visible = True
         QShortcut(QKeySequence("Ctrl+Shift+A"), self, activated=self.toggle_ai_panel)
         QShortcut(QKeySequence("Ctrl+Shift+F"), self, activated=self.toggle_focus_mode)
 
     def show_home(self):
-        """Tampilkan beranda berisi kartu semua cerita yang tersimpan."""
+        """Tampilkan beranda bersih seperti library Android; editor panels disembunyikan."""
         if self.chapter_id is not None:
             self.save_current_chapter()
+        if not self._home_mode:
+            # isVisible() is false before the main window is first shown; use
+            # isHidden() to preserve each widget's explicit visibility state.
+            self._home_sidebar_was_visible = not self.sidebar.isHidden()
+            self._home_ai_was_visible = not self.ai_panel.isHidden()
+        self._home_mode = True
+        self.sidebar.hide()
+        self.ai_panel.hide()
+        self.editor_header.hide()
         self.refresh_home_cards()
         self.center_stack.setCurrentWidget(self.home_page)
         self.chapter_heading.setText("Beranda")
@@ -1069,16 +1104,16 @@ class Stomake(QMainWindow):
         self.home_count_label.setText(f"{len(projects)} cerita tersimpan")
         for project_id, title, cover_data, synopsis in projects:
             card = QFrame()
-            card.setObjectName("panel")
-            card.setMinimumHeight(205)
+            card.setObjectName("storyCard")
+            card.setMinimumHeight(220)
             card_layout = QHBoxLayout(card)
-            card_layout.setContentsMargins(0, 0, 14, 0)
+            card_layout.setContentsMargins(0, 0, 18, 0)
             card_layout.setSpacing(0)
             cover = QLabel()
-            cover.setFixedWidth(155)
-            cover.setMinimumHeight(205)
+            cover.setFixedWidth(168)
+            cover.setMinimumHeight(220)
             cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            cover.setStyleSheet("background: rgba(140,130,150,0.18); border-top-left-radius: 10px; border-bottom-left-radius: 10px;")
+            cover.setStyleSheet("background: rgba(140,130,150,0.12); border-top-left-radius: 10px; border-bottom-left-radius: 10px;")
             pixmap = QPixmap()
             if cover_data:
                 try:
@@ -1086,22 +1121,23 @@ class Stomake(QMainWindow):
                 except Exception:
                     pass
             if not pixmap.isNull():
-                cover.setPixmap(pixmap.scaled(155, 205, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation))
+                cover.setPixmap(pixmap.scaled(168, 220, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation))
             else:
                 cover.setText("▤\nSampul")
                 cover.setStyleSheet(cover.styleSheet() + " font-size: 22px; color: palette(mid); ")
             card_layout.addWidget(cover)
             info = QVBoxLayout()
-            info.setContentsMargins(18, 14, 0, 14)
-            info.setSpacing(9)
+            info.setContentsMargins(28, 18, 10, 18)
+            info.setSpacing(12)
             title_label = QLabel(title)
             title_label.setObjectName("heading")
-            title_label.setStyleSheet("font-size: 19px; font-weight: 600;")
+            title_label.setStyleSheet("background: transparent; font-size: 20px; font-weight: 650; padding: 0;")
             info.addWidget(title_label)
             synopsis_label = QLabel((synopsis or "Belum ada sinopsis.").strip())
             synopsis_label.setWordWrap(True)
             synopsis_label.setObjectName("muted")
-            synopsis_label.setMaximumHeight(68)
+            synopsis_label.setMaximumHeight(76)
+            synopsis_label.setStyleSheet("background: transparent; padding: 0; line-height: 1.45;")
             info.addWidget(synopsis_label, 1)
             buttons = QHBoxLayout()
             read_button = QPushButton("▤  Baca")
@@ -1159,10 +1195,12 @@ class Stomake(QMainWindow):
             self.export_stomake()
         elif chosen == delete_action:
             self.delete_project()
-        self.refresh_home_cards()
+        self.show_home()
 
     def toggle_sidebar(self):
         """Minimize atau tampilkan navigasi Story Bible di sisi kiri."""
+        if getattr(self, "_home_mode", False):
+            return
         if not hasattr(self, "sidebar"):
             return
         self.sidebar.setVisible(not self.sidebar.isVisible())
@@ -1172,6 +1210,8 @@ class Stomake(QMainWindow):
 
     def toggle_ai_panel(self):
         """Tampilkan/sembunyikan AI tanpa mengubah panel lain."""
+        if getattr(self, "_home_mode", False):
+            return
         if not hasattr(self, "ai_panel"):
             return
         if self.ai_panel.isVisible():
@@ -2048,6 +2088,11 @@ class Stomake(QMainWindow):
 
     def open_project(self, project_id):
         self.save_current_chapter()
+        if self._home_mode:
+            self._home_mode = False
+            self.editor_header.show()
+            self.sidebar.setVisible(self._home_sidebar_was_visible)
+            self.ai_panel.setVisible(self._home_ai_was_visible)
         if self.project_id != project_id:
             self.ai_messages = []
             self.ai_conversation_id = None
@@ -3606,6 +3651,11 @@ class Stomake(QMainWindow):
         c = palettes.get(theme, palettes["Dark"])
         self.setStyleSheet(f"""
             QWidget {{ background: {c['bg']}; color: {c['fg']}; font-family: 'Segoe UI'; font-size: 13px; }}
+            QLabel {{ background: transparent; color: {c['fg']}; }}
+            QToolButton {{ background: {c['field']}; color: {c['fg']}; border: 1px solid {c['border']}; border-radius: 7px; padding: 7px 12px; }}
+            QToolButton:hover {{ background: {c['hover']}; border-color: {c['accent']}; }}
+            QFrame#storyCard {{ background: {c['panel']}; border: 1px solid {c['border']}; border-radius: 10px; }}
+            QFrame#storyCard QLabel {{ background: transparent; }}
             QFrame#sidebar {{ background: {c['panel']}; border-right: 1px solid {c['border']}; }}
             QFrame#sidebar QLabel {{ background: transparent; color: {c['fg']}; }}
             QLabel#logo {{ color: {c['accent']}; font-size: 22px; font-weight: 750; }}
