@@ -18,6 +18,10 @@ public final class WindowChrome extends HBox {
     private double dragOffsetY;
 
     public WindowChrome(Stage stage) {
+        this(stage, "Stomake 2.2.1");
+    }
+
+    public WindowChrome(Stage stage, String windowTitle) {
         this.stage = stage;
         getStyleClass().add("window-chrome");
         setAlignment(Pos.CENTER_LEFT);
@@ -27,7 +31,7 @@ public final class WindowChrome extends HBox {
 
         Label mark = new Label("S");
         mark.getStyleClass().add("window-brand-mark");
-        Label title = new Label("Stomake 2.2");
+        Label title = new Label(windowTitle == null || windowTitle.isBlank() ? "Stomake 2.2.1" : windowTitle);
         title.getStyleClass().add("window-title");
         HBox brand = new HBox(9, mark, title);
         brand.setAlignment(Pos.CENTER_LEFT);

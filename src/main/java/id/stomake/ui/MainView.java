@@ -52,6 +52,8 @@ public final class MainView extends BorderPane {
     private Button storyModeButton;
     private Button roleplayModeButton;
     private Button collapseModeButton;
+    private Button storySidebarToggle;
+    private boolean storySidebarVisible = true;
     private boolean modeRailCollapsed;
     private boolean roleplayMode;
     private String activeStoryTitle = "Beranda";
@@ -184,6 +186,10 @@ public final class MainView extends BorderPane {
         HBox header = new HBox(16);
         header.getStyleClass().add("topbar");
         header.setAlignment(Pos.CENTER_LEFT);
+        storySidebarToggle = new Button("☰");
+        storySidebarToggle.getStyleClass().add("sidebar-toggle-button");
+        storySidebarToggle.setTooltip(new Tooltip("Sembunyikan menu Story Maker"));
+        storySidebarToggle.setOnAction(e -> toggleStorySidebar());
         Label brandMark = new Label("✦");
         brandMark.getStyleClass().add("top-mark");
         VBox titleBox = new VBox(2, pageTitle, new Label("Ruang kerja kreatifmu"));
@@ -195,11 +201,24 @@ public final class MainView extends BorderPane {
         Button homeButton = new Button("Lihat cerita");
         homeButton.getStyleClass().add("button-quiet");
         homeButton.setOnAction(e -> showHome());
-        header.getChildren().addAll(brandMark, titleBox, spacer, localBadge, homeButton);
+        header.getChildren().addAll(storySidebarToggle, brandMark, titleBox, spacer, localBadge, homeButton);
         workspace.setTop(header);
         pageHost.getStyleClass().add("page-host");
         workspace.setCenter(pageHost);
         return workspace;
+    }
+
+    private void toggleStorySidebar() {
+        storySidebarVisible = !storySidebarVisible;
+        if (storySidebar != null) {
+            storySidebar.setVisible(storySidebarVisible);
+            storySidebar.setManaged(storySidebarVisible);
+        }
+        if (storySidebarToggle != null) {
+            storySidebarToggle.setText(storySidebarVisible ? "☰" : "›");
+            storySidebarToggle.setTooltip(new Tooltip(storySidebarVisible
+                    ? "Sembunyikan menu Story Maker" : "Tampilkan menu Story Maker"));
+        }
     }
 
     private Node buildSidebar() {
@@ -229,7 +248,7 @@ public final class MainView extends BorderPane {
         Region spacer = new Region(); VBox.setVgrow(spacer, Priority.ALWAYS);
         VBox footer = new VBox(10);
         Label localText = new Label("DATA TERSIMPAN LOKAL"); localText.getStyleClass().add("local-note");
-        Label version = new Label("STOMAKE 2.2.0  ·  JAVA"); version.getStyleClass().add("version-label");
+        Label version = new Label("STOMAKE 2.2.1  ·  JAVA"); version.getStyleClass().add("version-label");
         footer.getChildren().addAll(localText, version);
         side.getChildren().addAll(logoRow, new Separator(), nav, spacer, footer);
         return side;
@@ -413,6 +432,9 @@ public final class MainView extends BorderPane {
     private final class EditorView extends BorderPane {
         private final Project project;
         private final ListView<Chapter> chapterList = new ListView<>();
+        private VBox chapterRail;
+        private Button chapterToggle;
+        private boolean chapterRailVisible = true;
         private final TextField titleField = new TextField();
         private final WebView webView = new WebView();
         private final WebEngine engine = webView.getEngine();
@@ -424,10 +446,25 @@ public final class MainView extends BorderPane {
         EditorView(Project project) throws Exception {
             this.project = project;
             getStyleClass().add("editor-layout");
-            setLeft(buildChapterRail());
+            chapterRail = (VBox) buildChapterRail();
+            setLeft(chapterRail);
             setCenter(buildWritingArea());
             saveDelay.setOnFinished(e -> saveCurrentQuietly());
             refreshChapters();
+        }
+
+        private void toggleChapterRail() {
+            chapterRailVisible = !chapterRailVisible;
+            if (chapterRail != null) {
+                chapterRail.setVisible(chapterRailVisible);
+                chapterRail.setManaged(chapterRailVisible);
+            }
+            if (chapterToggle != null) {
+                chapterToggle.setText(chapterRailVisible ? "☰  Daftar Bab" : "›  Tampilkan Bab");
+                chapterToggle.setTooltip(new Tooltip(chapterRailVisible
+                        ? "Sembunyikan daftar bab untuk memperlebar editor"
+                        : "Tampilkan daftar bab"));
+            }
         }
 
         private Node buildChapterRail() {
@@ -461,8 +498,12 @@ public final class MainView extends BorderPane {
             VBox titleBox = new VBox(4, new Label("JUDUL BAB"), titleField);
             ((Label) titleBox.getChildren().get(0)).getStyleClass().add("field-caption");
             titleField.getStyleClass().add("chapter-title-input"); HBox.setHgrow(titleBox, Priority.ALWAYS);
+            chapterToggle = new Button("☰  Daftar Bab");
+            chapterToggle.getStyleClass().add("chapter-toggle-button");
+            chapterToggle.setTooltip(new Tooltip("Sembunyikan atau tampilkan daftar bab"));
+            chapterToggle.setOnAction(e -> toggleChapterRail());
             Button save = new Button("Simpan"); save.getStyleClass().add("button-primary"); save.setOnAction(e -> saveCurrent());
-            titleRow.getChildren().addAll(titleBox, save);
+            titleRow.getChildren().addAll(chapterToggle, titleBox, save);
             HBox tools = new HBox(7); tools.getStyleClass().add("editor-toolbar"); tools.setAlignment(Pos.CENTER_LEFT);
             Button bold = tool("B", () -> command("bold")); bold.setStyle("-fx-font-weight:bold;");
             Button italic = tool("I", () -> command("italic")); italic.setStyle("-fx-font-style:italic;");

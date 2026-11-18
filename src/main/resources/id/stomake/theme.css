@@ -311,3 +311,51 @@
 .app-root.slate-theme .mode-rail { -fx-background-color: #26313d; -fx-border-color: transparent #3b4856 transparent transparent; }
 .app-root.slate-theme .mode-button { -fx-text-fill: #aab8c5; }
 .app-root.slate-theme .mode-selected { -fx-background-color: #465a76; -fx-text-fill: #eef3f7; }
+
+/* 2.2.1: collapsible Story Maker navigation and chapter rail. */
+.sidebar-toggle-button,
+.chapter-toggle-button {
+    -fx-background-color: #202331;
+    -fx-text-fill: #c9c7d8;
+    -fx-background-radius: 8px;
+    -fx-padding: 8 11;
+    -fx-cursor: hand;
+}
+.sidebar-toggle-button:hover,
+.chapter-toggle-button:hover {
+    -fx-background-color: #302a49;
+    -fx-text-fill: #f5f2ff;
+}
+.app-root.light-theme .sidebar-toggle-button,
+.app-root.light-theme .chapter-toggle-button { -fx-background-color: #edf0f8; -fx-text-fill: #50556b; }
+.app-root.warm-theme .sidebar-toggle-button,
+.app-root.warm-theme .chapter-toggle-button { -fx-background-color: #e5dacb; -fx-text-fill: #68594b; }
+.app-root.slate-theme .sidebar-toggle-button,
+.app-root.slate-theme .chapter-toggle-button { -fx-background-color: #34414e; -fx-text-fill: #dce5ec; }
+
+/* Reader window controls remain visible in fullscreen because they are in the scene. */
+.reader-root { -fx-background-color: #12141d; }
+.reader-toolbar {
+    -fx-background-color: #181b26;
+    -fx-border-color: transparent transparent #2c3040 transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.reader-heading { -fx-text-fill: #ece9f5; -fx-font-size: 14px; -fx-font-weight: bold; }
+.reader-toolbar .label { -fx-text-fill: #b9bacb; -fx-font-size: 11px; }
+.reader-toolbar .button {
+    -fx-background-color: #252938;
+    -fx-text-fill: #e2dff0;
+    -fx-background-radius: 8px;
+    -fx-padding: 8 12;
+}
+.reader-toolbar .button:hover { -fx-background-color: #36304f; }
+.reader-toolbar .combo-box {
+    -fx-background-color: #252938;
+    -fx-border-color: #373c50;
+    -fx-border-radius: 7px;
+    -fx-background-radius: 7px;
+}
+.reader-toolbar .combo-box .list-cell { -fx-text-fill: #e7e4f0; }
+.reader-toc { -fx-background-color: #171a24; -fx-control-inner-background: #171a24; }
+.reader-toc .list-cell { -fx-text-fill: #d3d1df; -fx-background-color: #171a24; -fx-padding: 10 12; }
+.reader-toc .list-cell:selected { -fx-background-color: #302a49; -fx-text-fill: #e5dcff; }

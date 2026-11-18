@@ -1,4 +1,4 @@
-name: Build Stomake 2.2 Windows
+name: Build Stomake 2.2.1 Windows
 
 on:
   push:
@@ -36,9 +36,13 @@ jobs:
         shell: pwsh
         run: |
           $required = @(
+            'src/main/java/id/stomake/App.java',
             'src/main/java/id/stomake/data/Database.java',
             'src/main/java/id/stomake/data/Repository.java',
-            'src/main/java/id/stomake/ui/WindowChrome.java'
+            'src/main/java/id/stomake/ui/MainView.java',
+            'src/main/java/id/stomake/ui/WindowChrome.java',
+            'src/main/java/id/stomake/ui/ReaderWindow.java',
+            'src/main/resources/id/stomake/theme.css'
           )
           foreach ($file in $required) {
             git ls-files --error-unmatch $file | Out-Null
@@ -72,7 +76,7 @@ jobs:
       - name: Upload Windows application
         uses: actions/upload-artifact@v7
         with:
-          name: Stomake-2.2-Windows-x64
+          name: Stomake-2.2.1-Windows-x64
           path: |
             dist/Stomake-*-Windows-x64.zip
             dist/SHA256SUMS.txt
