@@ -1,130 +1,126 @@
-# Stomake PC
+# Stomake Desktop 2.1.1 — JavaFX
 
-Stomake PC adalah aplikasi desktop Windows berbasis Python + PySide6 + SQLite. Versi ini melanjutkan fondasi desktop Stomake/NopAI lama dan dirancang untuk bertukar cerita dengan Stomake Android melalui file `.stomake`.
+Stomake 2.1.1 adalah aplikasi desktop untuk menulis cerita, mengatur worldbuilding, dan roleplay karakter AI. UI desktop menggunakan **Java 21 + JavaFX**; data cerita dan percakapan disimpan di SQLite. AI berjalan melalui **Ollama lokal**.
 
-## Fitur yang tersedia
+## Fitur JavaFX
 
-- Banyak proyek cerita, bab, autosave, rich-text editor, shortcut Bold/Italic/Underline/Strikethrough, heading, alignment, pilihan font, dan sisipkan gambar.
-- Story Bible / World Bible, kategori custom, profil karakter/role, koneksi karakter, relasi dengan deskripsi, tautan entri ke bab.
-- Timeline, statistik dan target kata, riwayat versi/snapshot.
-- Mode Baca untuk sinopsis, bab, Bible, relasi, dan timeline.
-- Sampul dan sinopsis proyek; gambar utama dan galeri pada entri Bible; crop sebelum memilih gambar.
-- Empat tema: Dark, Light, Warm Light, Slate. Tema disimpan di pengaturan Windows.
-- Panel navigasi kiri dan AI kanan dapat diminimize secara terpisah.
-- Mode baca non-modal di jendela terpisah, mendukung fullscreen dan multitasking.
-- AI Assistant lokal melalui Ollama, pemilih model lokal dan refresh daftar model, konteks proyek, riwayat percakapan yang tersimpan.
-- Backup/Restore database lokal.
-- Export/Import `.stomake` kompatibel dengan format single-story Stomake Android (JSON dengan ekstensi `.stomake`).
-- Export Word `.docx` dan opsi menyiapkan file untuk Google Docs.
+### Proyek dan penulisan
+- Beranda proyek, buat/ganti nama/hapus cerita, sinopsis, sampul, dan import cerita.
+- Editor bab berbasis JavaFX WebView dengan bold, italic, underline, strikethrough, heading, font family, ukuran font yang terlihat, alignment, daftar, dan autosave.
+- Sisipkan gambar ke bab dengan dialog crop.
+- Riwayat versi bab: simpan snapshot saat isi berubah, lihat versi sebelumnya, dan pulihkan versi.
+- Mode baca terpisah dengan daftar isi yang bisa disembunyikan dan fullscreen.
+- Statistik kata, bab, jumlah entri Story Bible, aktivitas menulis, dan target kata harian.
 
-## Build Windows EXE dengan GitHub Actions
+### Story Bible dan gambar
+- Entri karakter, lokasi, faksi, benda, lore, dan kategori custom.
+- Trait custom yang bisa ditambahkan dan dipakai ulang.
+- Gambar utama dan galeri multi-gambar untuk entri Bible; crop, atur lebar, pilih tata letak kiri/tengah/kanan, dan hapus gambar.
+- Sampul cerita bisa diganti/crop dan sinopsis dapat diedit.
+- Peta relasi karakter: buat relasi, beri label/catatan, lihat diagram, dan hapus relasi.
 
-1. Buat repository GitHub baru, misalnya `Stomake-PC`.
-2. Upload seluruh isi folder ini ke branch `main`.
-3. Buka tab **Actions**. Workflow **Build Stomake PC EXE** akan berjalan otomatis.
-4. Setelah selesai, buka run terakhir lalu unduh artifact **Stomake-PC-Windows**.
-5. Extract ZIP dan jalankan `Stomake.exe`.
+### Studio Karakter dan AI
+- Karakter mandiri yang tidak harus terikat ke proyek cerita.
+- Persona mencakup personality, traits, background, appearance, speaking style, motivations, flaws, secrets, relationship to user, scenario, greeting, extra instructions, dan memory notes.
+- Chat roleplay tersimpan per karakter; model bisa dipilih per karakter, chat bisa direset, dan profil bisa dimasukkan ke Story Bible.
+- Prompt roleplay menyertakan profil karakter dan riwayat chat terbaru. Tombol ringkas memori membantu menyimpan fakta kontinuitas saat riwayat percakapan panjang.
+- AI Penulis terpisah dari model roleplay; tampil sebagai chat dengan riwayat percakapan tersimpan per proyek, pemilih model dan refresh daftar model Ollama.
+- Pengaturan server Ollama, model, koneksi, dan unduh model.
 
-Bisa juga build lokal di Windows dengan Python 3.12: klik dua kali `Build_Stomake_PC.bat`. Hasilnya ada di `dist\Stomake.exe`.
+## Model AI roleplay
 
-## Ollama lokal
-
-Pasang Ollama dari https://ollama.com/download, buka Ollama, lalu unduh model contoh:
-
-```powershell
-ollama pull qwen2.5:3b
-```
-
-Stomake PC menghubungi `http://localhost:11434`. Di panel AI, pilih model yang sudah diunduh atau tekan tombol refresh untuk membaca daftar model Ollama. AI lokal membutuhkan Ollama berjalan; fitur menulis, Bible, backup, dan import/export tetap dapat digunakan tanpa Ollama.
-
-## Transfer Android ↔ PC
-
-- Dari Android: buka menu cerita → Export Cerita, simpan atau bagikan file `.stomake`.
-- Di PC: klik **Import .stomake** di bagian atas, lalu pilih file tersebut.
-- Dari PC: klik **Export Cerita** → **Export Stomake (.stomake)**.
-- Di Android: pilih Import Cerita dan pilih file `.stomake` dari PC.
-
-Import membuat salinan proyek baru; proyek yang sudah ada tidak ditimpa. Jika nama sama, aplikasi menambahkan akhiran angka.
-
-**Catatan kompatibilitas:** teks bab, sampul, sinopsis, entri Bible, role, data gambar, timeline, dan relasi dipetakan ke struktur yang didukung format Android. Format paragraf/rich-text khusus PC dapat disederhanakan menjadi teks biasa saat transfer lintas platform karena format ekspor Android saat ini berisi field `content` biasa; file database PC lokal tetap menyimpan HTML rich-text penuh.
-
-## Data dan backup
-
-Database disimpan di folder `data\Stomake.db` di samping EXE. Gunakan tombol **Backup / Restore Data** sebelum memindahkan PC atau menginstal ulang. File backup `.db` berisi seluruh data lokal, termasuk gambar yang telah disimpan sebagai data internal.
-
-Jangan mengunggah database atau file backup yang berisi naskah pribadi ke repository publik.
-
-Lihat `FEATURES.md` untuk checklist fitur Android yang dipetakan ke PC dan catatan kompatibilitas lintas platform.
-
-
-## Stomake PC 1.0.1 — perbaikan import PySide6
-
-Perbaikan error `cannot import name QGraphicsView from PySide6.QtGui`: kelas `QGraphicsView`, `QGraphicsScene`, dan `QGraphicsRectItem` sekarang diimpor dari `PySide6.QtWidgets`, sedangkan `QPainter` dan `QPixmap` tetap dari `PySide6.QtGui`. GitHub Actions juga menjalankan pemeriksaan import grafis sebelum PyInstaller.
-
-
-## Stomake PC 1.0.4 — Medium-inspired writing editor
-- Formatting toolbar is now split across two rows so Font, Ukuran, and Paragraf/Heading controls remain visible without a horizontal scroll indicator.
-- Toolbar labels use full wording; font family, size, and paragraph style dropdowns have usable widths.
-- Writing column is centered and limited to a comfortable reading width, inspired by Medium.
-- Paragraph / H1 / H2 / H3 applies paragraph block styles and the active style follows the caret.
-- Changing font family or size updates the editor default font as well as the typing format, including the empty-editor placeholder.
-
-
-## Stomake PC 1.0.6 — clean home and cohesive UI
-- Beranda now hides the editor toolbar, left Bible/navigation sidebar, and right AI panel. Opening a story restores the workbench panels to their previous visibility.
-- Home includes a clean Stomake heading and a small settings menu for theme and backup/restore.
-- Editor header actions are shortened and import/export/cover actions are grouped in a Lainnya menu, preventing clipped labels.
-- Story cards have more inner spacing and transparent title/synopsis labels; the global label style is transparent so text no longer appears on awkward rectangular blocks.
-- AI heading blends with the right panel without a separate label background.
-
-
-## Stomake PC 1.0.6 — home library polish
-- The opening screen is now a clean library showing saved works, covers, titles, synopses, and Read/Edit actions. It hides the Bible/sidebar, editing toolbar, and AI panel while on Home.
-- Opening a story restores the left and right workbench panels to their previous visibility.
-- Home settings menu retains theme switching and backup/restore access.
-- Story card title/synopsis text has transparent backgrounds and more breathing room beside the cover.
-- The editor header has shorter controls; import, export, and cover/synopsis actions are grouped under “Lainnya” to prevent clipping.
-
-
-## V1.0.6 — Medium-style reading and editor polish
-- Empty chapter starts left-aligned instead of inheriting an accidental centered paragraph format.
-- The selected font family and size are applied to the editor widget and its placeholder from the start and whenever changed.
-- Reading mode is now a separate standalone, maximized window; the editing window is hidden while reading and restored when the reader closes.
-- Reader table of contents / chapter navigation can be hidden and reopened independently for a distraction-free Medium-like reading view.
-
-
-## 1.0.7 — Default writing alignment fix
-- New and empty chapters are forced to left alignment even if their saved HTML contains an empty paragraph with stale center/justify formatting.
-- The typing cursor and current character format initialize from the selected font and size.
-- Existing chapters that contain text or embedded images keep their saved paragraph alignment.
-
-
-## V1.0.8 — Full-width writing area
-- Writing editor is no longer constrained to a narrow centered 860px column.
-- The writing area starts at the left side of the central workspace and expands to fill the available width between the sidebar and AI panel.
-- Default paragraph alignment remains left; the text column is no longer centered by stretch spacers.
-
-
-## Stomake PC 1.0.9 — Local uncensored writing model
-
-Default AI model: `richardyoung/qwen2.5-3b-instruct-abliterated:latest` (Qwen2.5 3B Abliterated, Q4_K_M, about 1.9 GB). The model publisher describes it as an abliterated build with refusal tendencies removed. This is a community fine-tune, not an official Qwen release and not a guarantee of zero refusals.
-
-### Install the recommended model
-
-1. Install and open Ollama for Windows: https://ollama.com/download
-2. In Stomake PC's AI panel, choose **Qwen2.5 3B Abliterated** and click **Unduh**. The progress is shown inside the AI panel.
-3. Alternatively, run `Install_Uncensored_Model.bat`, or use PowerShell:
+Default roleplay diarahkan ke fine-tune komunitas Gemma 3 4B Heretic:
 
 ```powershell
-ollama pull richardyoung/qwen2.5-3b-instruct-abliterated
+ollama pull R4C3R/gemma-3-4b-it-heretic:q4_k_m
 ```
 
-4. Press the refresh button (↻) in the AI panel. The installed model is marked with ✓.
+Alternatif yang lebih ringan:
 
-The PC build also offers `dolphin-phi:latest` as a smaller uncensored alternative (about 1.6 GB, but only 2K context) and `dolphin-mistral:latest` as a much heavier 7B alternative (about 4.1 GB; not recommended for 8 GB RAM). Ollama models already installed on the computer are also detected automatically.
+```powershell
+ollama pull richardyoung/qwen2.5-3b-instruct-abliterated:latest
+```
 
-### Settings for the older 8 GB laptop
+Alternatif roleplay lebih besar:
 
-Stomake uses a 4,096-token context, up to 900 output tokens, temperature 0.95, and recent conversation history. These settings favor creative freedom while limiting memory use. Generation may still be slow; close browsers and other memory-heavy apps before a long writing session. A 1.9 GB model file does not mean the entire running model uses only 1.9 GB of RAM.
+```powershell
+ollama pull R4C3R/qwen3-8b-heretic:q4_k_m
+```
 
-The Stomake system prompt is tuned for fiction writing and avoids adding extra generic moralizing/refusal instructions. The model itself can still occasionally refuse or produce inconsistent text; no model can honestly be guaranteed to never refuse.
+Model uncensored mengurangi kecenderungan menolak, tetapi tidak menjamin penolakan nol atau konsistensi sempurna. Model 8B lebih berat; untuk laptop dengan RAM 8 GB, mulai dari model 3B/4B dan tutup aplikasi berat. AI lokal membutuhkan Ollama yang aktif dan model sudah terunduh.
+
+## Build otomatis menjadi aplikasi Windows lewat GitHub Actions
+
+**Kamu tidak perlu memasang JDK atau Maven di laptop hanya untuk menghasilkan build Windows.** Workflow `.github/workflows/build-windows.yml` sudah disertakan. GitHub Actions akan menggunakan runner Windows untuk memasang JDK 21 dan Maven, kemudian menjalankan `Build-Windows.ps1` dan mengunggah hasilnya sebagai artifact.
+
+### Cara memasukkan source ke GitHub
+
+1. Buat repository baru di GitHub, misalnya `Stomake-Desktop`. Pilih **Public** atau **Private** sesuai kebutuhan, dan biarkan repository benar-benar kosong (jangan centang Add a README, license, atau `.gitignore`).
+2. Ekstrak ZIP source Stomake, lalu buka terminal di folder `Stomake-2.1.1` (folder yang berisi `pom.xml`, `Build-Windows.ps1`, dan `.github`).
+3. Pastikan `.github/workflows/build-windows.yml` ikut terunggah. Jangan unggah database pribadi atau backup berisi naskah.
+4. Jalankan perintah berikut setelah mengganti URL repository dengan milikmu:
+
+```powershell
+git init -b main
+git add .
+git commit -m "Stomake 2.1.1 JavaFX"
+git remote add origin https://github.com/USERNAME/Stomake-Desktop.git
+git push -u origin main
+```
+
+Kalau repository sudah memiliki remote dan branch, cukup salin file source ke folder repository, lalu jalankan `git add .`, `git commit`, dan `git push`.
+
+### Mengambil EXE hasil build
+
+1. Buka repository GitHub, lalu pilih tab **Actions**.
+2. Pilih workflow **Build Stomake Windows**. Workflow berjalan otomatis saat ada push ke branch repository mana pun; kamu juga bisa memilih **Run workflow** untuk menjalankannya manual.
+3. Buka hasil run terbaru dan cari bagian **Artifacts**.
+4. Unduh artifact **Stomake-Windows-x64**. Di dalamnya ada ZIP aplikasi Windows dan file checksum.
+5. Ekstrak `Stomake-2.1.1-Windows-x64.zip` secara utuh, lalu jalankan `Stomake.exe` di dalam folder `Stomake`.
+
+### Apa yang dihasilkan?
+
+GitHub Actions membuat **portable app-image**: folder aplikasi yang berisi `Stomake.exe`, library JavaFX, dependency, dan runtime Java privat. Jadi pengguna Windows tidak perlu memasang JDK/Maven. Jangan memindahkan `Stomake.exe` keluar dari foldernya.
+
+Ini bukan satu file EXE installer yang berdiri sendiri. Aplikasi perlu seluruh folder `Stomake`. Proses build lokal juga tersedia melalui `Build-Windows.ps1`, tetapi cara GitHub Actions di atas tidak memerlukan toolchain build di laptop.
+
+## Yang tetap terpisah: Ollama
+
+EXE Stomake memuat runtime Java dan UI, tetapi **Ollama dan file model AI tidak dimasukkan ke dalam EXE**. Ollama adalah layanan inferensi lokal yang harus dipasang dan dijalankan terpisah. Setelah Ollama aktif dan model diunduh, Stomake mengaksesnya melalui alamat lokal `http://localhost:11434` secara default. Fitur editor, Story Bible, timeline, dan pengelolaan cerita tetap bisa digunakan tanpa Ollama.
+
+## Build manual (opsional)
+
+Jika ingin menjalankan source atau build di komputer sendiri:
+
+- JDK 21
+- Maven 3.9+
+- Windows x64 untuk menghasilkan Windows app-image
+
+```powershell
+mvn javafx:run
+```
+
+Untuk membuat portable Windows app-image:
+
+```powershell
+./Build-Windows.ps1
+```
+
+Hasilnya ada di `dist\Stomake\Stomake.exe` dan folder `dist\Stomake`.
+
+## Database dan migrasi Stomake 1.x
+
+Lokasi database baru:
+
+- Windows: `%APPDATA%\Stomake\data\Stomake.db`
+- Sistem lain: `~/.stomake/data/Stomake.db`
+
+Saat pertama dijalankan, aplikasi mencoba menyalin database lama dari `data\Stomake.db` atau `data\nopai.db` pada folder kerja. Bila database lama berada di tempat lain, tutup aplikasi lama, buka **Pengaturan & Model AI → Impor database Stomake 1.x**, pilih database, lalu restart aplikasi.
+
+Migrasi skema bersifat additive: tabel dan kolom lama dibiarkan, sedangkan tabel/kolom baru dibuat bila belum ada. Fitur impor/ekspor `.stomake` mempertahankan metadata cerita, bab, cover, gambar/galeri, Story Bible, timeline, dan relasi yang tersedia dalam format tersebut. Ekspor Word menyertakan teks cerita, sinopsis, Story Bible, timeline, dan relasi; pemformatan rich-text serta gambar tidak seluruhnya direproduksi di dokumen Word.
+
+**Selalu backup database sebelum migrasi, restore, atau penghapusan proyek.** Aplikasi menyimpan data lokal; jangan commit file database ke repository publik.
+
+## Pengujian dan batasan build
+
+Source JavaFX dan workflow build Windows disertakan. Build Windows yang sebenarnya dijalankan di runner GitHub Actions; lingkungan pengembangan ini tidak menyediakan Maven dan dependensi JavaFX untuk menjalankan full build. Karena itu, keberhasilan pembuatan `Stomake.exe` perlu dikonfirmasi dari hasil run GitHub Actions pertama.
