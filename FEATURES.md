@@ -53,3 +53,10 @@ The PC AI provider is Ollama running locally. It does not use Android's Gemini/O
 
 ## V1.0.8 editor layout
 - Full-width text editor aligned to the left of the central writing workspace. The old fixed-width centered editor canvas has been removed.
+
+
+## AI local uncensored presets (1.0.9)
+- Default: Qwen2.5 3B Abliterated via Ollama.
+- One-click model download through Ollama's local pull API with progress status.
+- Refresh detects all installed Ollama models; recommended Dolphin alternatives are included.
+- Fiction-writing system prompt, recent chat context, 4K context and memory-conscious generation defaults.

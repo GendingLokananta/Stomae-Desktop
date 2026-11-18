@@ -25,7 +25,8 @@ from PySide6.QtWidgets import (
 # =========================
 
 APP_NAME = "Stomake"
-MODEL_NAME = "qwen2.5:3b"
+MODEL_NAME = "richardyoung/qwen2.5-3b-instruct-abliterated:latest"
+DEFAULT_UNCENSORED_MODEL = MODEL_NAME
 
 BASE_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
@@ -335,55 +336,114 @@ class AIWorker(QThread):
     success = Signal(str)
     failure = Signal(str)
 
-    def __init__(self, prompt, context, model=MODEL_NAME):
+    def __init__(self, prompt, context, model=MODEL_NAME, history=None):
         super().__init__()
         self.prompt = prompt
         self.context = context
         self.model = model
+        self.history = list(history or [])
 
     def run(self):
         try:
+            system_prompt = (
+                "Kamu adalah partner penulis fiksi lokal untuk Stomake. Tugasmu membantu "
+                "menulis novel, prosa, dialog, worldbuilding, karakter, konflik, romance, "
+                "horor, thriller, dark fantasy, dan roleplay sesuai arahan pengguna. "
+                "Jangan menambahkan penolakan generik, ceramah moral, atau menyensor tema "
+                "fiksi hanya karena temanya gelap, dewasa, kontroversial, atau tidak nyaman. "
+                "Untuk karya fiksi, pertahankan tone, tingkat kedewasaan, sudut pandang, "
+                "dan gaya yang diminta; jangan mengubah adegan menjadi versi yang lebih "
+                "jinak tanpa diminta. Karakter dan hubungan dalam roleplay adalah fiksi. "
+                "Bedakan dengan jelas konteks cerita fiksi dari permintaan tindakan nyata. "
+                "Jaga kontinuitas berdasarkan konteks proyek. Jika detail belum ditentukan, "
+                "kembangkan sebagai usulan kreatif, bukan fakta yang sudah pasti. Jawab "
+                "langsung dalam bahasa pengguna dan berikan prosa yang konkret, bukan "
+                "ringkasan singkat kecuali diminta.\n\n"
+                "KONTEKS PROYEK STOMAKE:\n" + ((self.context or "Belum ada konteks tambahan.")[-8500:])
+            )
+            messages = [{"role": "system", "content": system_prompt}]
+            for item in self.history[-6:]:
+                role = item.get("role")
+                content = item.get("content", "")
+                if role in ("user", "assistant") and content:
+                    messages.append({"role": role, "content": content[-1200:]})
+            if messages[-1].get("role") != "user" or messages[-1].get("content") != self.prompt:
+                messages.append({"role": "user", "content": self.prompt})
+
             response = requests.post(
                 "http://localhost:11434/api/chat",
                 json={
                     "model": self.model,
                     "stream": False,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": (
-                                "Kamu adalah asisten penulis kreatif Stomake. Bantu pengguna "
-                                "mengembangkan cerita fiksi, karakter, dialog, konflik, organisasi, "
-                                "worldbuilding, plot, dan prosa. Perlakukan permintaan pengguna dalam "
-                                "konteks penulisan cerita kecuali pengguna dengan jelas meminta tindakan "
-                                "nyata. Tema fiksi seperti rezim, perlawanan, konflik politik, perang, "
-                                "organisasi, atau perjuangan karakter boleh dibahas sebagai elemen cerita. "
-                                "Gunakan konteks proyek untuk menjaga konsistensi. Jangan mengarang fakta "
-                                "yang bertentangan dengan konteks; jika informasi belum ada, tawarkan ide "
-                                "sebagai kemungkinan atau usulan. Jawab dengan bahasa yang digunakan pengguna.\n\n"
-                                "KONTEKS PROYEK:\n" + self.context
-                            )
-                        },
-                        {"role": "user", "content": self.prompt}
-                    ],
-                    "options": {"num_ctx": 4096}
+                    "keep_alive": "5m",
+                    "messages": messages,
+                    "options": {
+                        "num_ctx": 4096,
+                        "num_predict": 900,
+                        "temperature": 0.95,
+                        "top_p": 0.9,
+                        "repeat_penalty": 1.08,
+                    },
                 },
-                timeout=300
+                timeout=600,
             )
             response.raise_for_status()
             answer = response.json().get("message", {}).get("content", "")
             self.success.emit(answer or "AI tidak memberikan jawaban.")
         except requests.exceptions.ConnectionError:
             self.failure.emit(
-                f"Tidak dapat terhubung ke Ollama. Pastikan Ollama berjalan "
-                f"dan model '{self.model}' sudah diunduh. Jalankan: ollama pull {self.model}"
+                "Tidak dapat terhubung ke Ollama. Pastikan Ollama berjalan dan model "
+                f"'{self.model}' sudah dipasang. Gunakan tombol Unduh di panel AI."
             )
         except requests.exceptions.Timeout:
             self.failure.emit(
-                "AI terlalu lama merespons. Coba prompt yang lebih pendek."
+                "Generasi melewati batas waktu. Model lokal kecil bisa membutuhkan waktu lama; "
+                "coba prompt lebih pendek atau kurangi konteks."
             )
         except Exception as error:
             self.failure.emit(str(error))
+
+
+class OllamaPullWorker(QThread):
+    progress = Signal(str)
+    success = Signal(str)
+    failure = Signal(str)
+
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def run(self):
+        try:
+            response = requests.post(
+                "http://localhost:11434/api/pull",
+                json={"name": self.model, "stream": True},
+                stream=True,
+                timeout=(10, None),
+            )
+            response.raise_for_status()
+            for line in response.iter_lines(decode_unicode=True):
+                if not line:
+                    continue
+                try:
+                    item = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if item.get("error"):
+                    raise RuntimeError(item["error"])
+                status = item.get("status", "Mengunduh model")
+                total = item.get("total")
+                completed = item.get("completed")
+                if isinstance(total, (int, float)) and total > 0 and isinstance(completed, (int, float)):
+                    percent = max(0, min(100, int(completed * 100 / total)))
+                    self.progress.emit(f"{status} · {percent}%")
+                else:
+                    self.progress.emit(status)
+            self.success.emit(self.model)
+        except requests.exceptions.ConnectionError:
+            self.failure.emit("Tidak dapat terhubung ke Ollama. Pastikan aplikasi Ollama sedang berjalan.")
+        except Exception as exc:
+            self.failure.emit(str(exc))
 
 
 # =========================
@@ -501,7 +561,7 @@ def crop_image_file(parent, title="Edit Gambar"):
 class Stomake(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Stomake PC 1.0.6 — Ruang Cerita Kreatif")
+        self.setWindowTitle("Stomake PC 1.0.9 — Ruang Cerita Kreatif")
         self.resize(1450, 880)
         self.setMinimumSize(1000, 650)
 
@@ -1013,25 +1073,46 @@ class Stomake(QMainWindow):
         ai_title = QLabel("✦ AI")
         ai_title.setObjectName("heading")
         ai_header.addWidget(ai_title, 1)
-        self.ai_model_combo = QComboBox()
-        self.ai_model_combo.setMinimumWidth(150)
-        self.ai_model_combo.addItems(["llama3.2:3b", "qwen2.5:3b"])
-        stored_model = QSettings("GendingLokananta", "StomakePC").value("ollama_model", MODEL_NAME)
-        self.ai_model_combo.setCurrentText(stored_model)
-        self.ai_model_combo.currentTextChanged.connect(lambda value: QSettings("GendingLokananta", "StomakePC").setValue("ollama_model", value))
-        ai_header.addWidget(self.ai_model_combo)
-        refresh_models = QPushButton("↻")
-        refresh_models.setToolTip("Muat model yang tersedia dari Ollama")
-        refresh_models.setFixedWidth(30)
-        refresh_models.clicked.connect(self.refresh_ollama_models)
-        ai_header.addWidget(refresh_models)
         ai_hide_button = QPushButton("×")
         ai_hide_button.setObjectName("iconButton")
         ai_hide_button.setFixedSize(28, 28)
-        ai_hide_button.setToolTip("Sembunyikan AI Assistant")
+        ai_hide_button.setToolTip("Sembunyikan AI")
         ai_hide_button.clicked.connect(self.toggle_ai_panel)
         ai_header.addWidget(ai_hide_button)
         ai_layout.addLayout(ai_header)
+
+        model_row = QHBoxLayout()
+        model_row.setSpacing(5)
+        self.ai_model_combo = QComboBox()
+        self.ai_model_combo.setMinimumWidth(0)
+        self.ai_model_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.ai_model_combo.setMinimumContentsLength(16)
+        self.ai_model_combo.setToolTip("Pilih model Ollama. Qwen Abliterated direkomendasikan untuk penulisan fiksi yang lebih bebas.")
+        model_row.addWidget(self.ai_model_combo, 1)
+        self.ai_install_button = QPushButton("Unduh")
+        self.ai_install_button.setToolTip("Unduh model yang dipilih langsung melalui Ollama")
+        self.ai_install_button.clicked.connect(self.install_selected_ollama_model)
+        model_row.addWidget(self.ai_install_button)
+        refresh_models = QPushButton("↻")
+        refresh_models.setToolTip("Deteksi model Ollama yang sudah terpasang")
+        refresh_models.setFixedWidth(30)
+        refresh_models.clicked.connect(self.refresh_ollama_models)
+        model_row.addWidget(refresh_models)
+        ai_layout.addLayout(model_row)
+        self.ai_model_status = QLabel("Model lokal · tekan ↻ untuk mendeteksi atau Unduh untuk memasang")
+        self.ai_model_status.setObjectName("muted")
+        self.ai_model_status.setWordWrap(True)
+        ai_layout.addWidget(self.ai_model_status)
+        self.ai_model_combo.currentIndexChanged.connect(self._save_selected_ollama_model)
+        self._ollama_pull_worker = None
+        ai_settings = QSettings("GendingLokananta", "StomakePC")
+        stored_model = ai_settings.value("ollama_model", DEFAULT_UNCENSORED_MODEL)
+        if not ai_settings.value("uncensored_default_migrated", False):
+            if stored_model in ("qwen2.5:3b", "llama3.2:3b", None, ""):
+                stored_model = DEFAULT_UNCENSORED_MODEL
+            ai_settings.setValue("uncensored_default_migrated", True)
+            ai_settings.setValue("ollama_model", stored_model)
+        self._populate_ollama_models([], selected=stored_model)
         self.chat = QTextEdit()
         self.chat.setReadOnly(True)
         self.chat.setPlaceholderText("Hai, aku asistenmu. Aku bisa membantu melanjutkan cerita, memberi saran, dan memeriksa konsistensi.")
@@ -3659,22 +3740,81 @@ class Stomake(QMainWindow):
         history.itemDoubleClicked.connect(lambda _item:load_selected())
         dialog.exec()
 
+    def _recommended_ollama_models(self):
+        return [
+            ("Qwen2.5 3B Abliterated · 1.9 GB · rekomendasi", DEFAULT_UNCENSORED_MODEL),
+            ("Dolphin Phi 2.7B · 1.6 GB · konteks 2K", "dolphin-phi:latest"),
+            ("Dolphin Mistral 7B · 4.1 GB · berat untuk RAM 8 GB", "dolphin-mistral:latest"),
+        ]
+
+    def _populate_ollama_models(self, installed, selected=None):
+        settings = QSettings("GendingLokananta", "StomakePC")
+        selected = selected or settings.value("ollama_model", DEFAULT_UNCENSORED_MODEL)
+        installed_set = set(installed)
+        self.ai_model_combo.blockSignals(True)
+        self.ai_model_combo.clear()
+        seen = set()
+        for label, model in self._recommended_ollama_models():
+            marker = "✓ " if model in installed_set else "↓ "
+            self.ai_model_combo.addItem(marker + label, model)
+            seen.add(model)
+        for model in sorted(installed):
+            if model not in seen:
+                self.ai_model_combo.addItem("✓ " + model, model)
+        index = self.ai_model_combo.findData(selected)
+        if index < 0:
+            index = self.ai_model_combo.findData(DEFAULT_UNCENSORED_MODEL)
+        self.ai_model_combo.setCurrentIndex(max(0, index))
+        self.ai_model_combo.blockSignals(False)
+        settings.setValue("ollama_model", self.ai_model_combo.currentData() or DEFAULT_UNCENSORED_MODEL)
+
+    def _selected_ollama_model(self):
+        return self.ai_model_combo.currentData() or DEFAULT_UNCENSORED_MODEL
+
+    def _save_selected_ollama_model(self, *_):
+        QSettings("GendingLokananta", "StomakePC").setValue("ollama_model", self._selected_ollama_model())
+        selected = self._selected_ollama_model()
+        self.ai_model_status.setText("Model dipilih: " + selected)
+
     def refresh_ollama_models(self):
-        """Periksa dua model pilihan tanpa menambahkan model lain ke dropdown."""
-        allowed = ["llama3.2:3b", "qwen2.5:3b"]
+        """Detect all locally installed Ollama models and show uncensored presets."""
+        selected = self._selected_ollama_model() if self.ai_model_combo.count() else DEFAULT_UNCENSORED_MODEL
         try:
             response = requests.get("http://localhost:11434/api/tags", timeout=5)
             response.raise_for_status()
-            installed = {item.get("name", "") for item in response.json().get("models", [])}
-            available = [name for name in allowed if name in installed or any(tag.startswith(name + ":") for tag in installed)]
-            missing = [name for name in allowed if name not in available]
-            message = "Model tersedia: " + (", ".join(available) if available else "belum ada")
-            if missing:
-                message += "\nBelum terpasang: " + ", ".join(missing)
-                message += "\nUnduh melalui terminal dengan `ollama pull nama-model`."
-            QMessageBox.information(self, "Model Ollama", message)
+            installed = [item.get("name", "") for item in response.json().get("models", []) if item.get("name")]
+            self._populate_ollama_models(installed, selected=selected)
+            self.ai_model_status.setText(f"Ollama aktif · {len(installed)} model terpasang. ✓ = tersedia, ↓ = belum diunduh.")
         except Exception as exc:
-            QMessageBox.warning(self, "Ollama tidak tersedia", f"Tidak bisa memeriksa model. Pastikan Ollama berjalan.\n\n{exc}")
+            self._populate_ollama_models([], selected=selected)
+            self.ai_model_status.setText("Ollama belum terhubung. Buka Ollama, lalu tekan ↻ lagi. " + str(exc))
+
+    def install_selected_ollama_model(self):
+        if self._ollama_pull_worker is not None and self._ollama_pull_worker.isRunning():
+            return
+        model = self._selected_ollama_model()
+        self.ai_install_button.setEnabled(False)
+        self.ai_model_combo.setEnabled(False)
+        self.ai_model_status.setText("Menyiapkan unduhan: " + model)
+        self._ollama_pull_worker = OllamaPullWorker(model)
+        self._ollama_pull_worker.progress.connect(self.ai_model_status.setText)
+        self._ollama_pull_worker.success.connect(self._ollama_model_installed)
+        self._ollama_pull_worker.failure.connect(self._ollama_model_install_failed)
+        self._ollama_pull_worker.finished.connect(self._ollama_pull_finished)
+        self._ollama_pull_worker.start()
+
+    def _ollama_model_installed(self, model):
+        self._populate_ollama_models([model], selected=model)
+        self.ai_model_status.setText("Model berhasil dipasang: " + model)
+
+    def _ollama_model_install_failed(self, message):
+        self.ai_model_status.setText("Unduhan gagal: " + message)
+        QMessageBox.warning(self, "Gagal mengunduh model", message)
+
+    def _ollama_pull_finished(self):
+        self.ai_install_button.setEnabled(True)
+        self.ai_model_combo.setEnabled(True)
+        self.refresh_ollama_models()
 
     def backup_restore_menu(self):
         menu=QMenu(self)
@@ -3710,8 +3850,10 @@ class Stomake(QMainWindow):
         self.prompt.clear()
         self.send_button.setEnabled(False)
         self.send_button.setText("Memproses...")
-        selected_model = self.ai_model_combo.currentText().strip() or MODEL_NAME
-        self.worker = AIWorker(prompt, context, selected_model)
+        selected_model = self._selected_ollama_model()
+        QSettings("GendingLokananta", "StomakePC").setValue("ollama_model", selected_model)
+        recent_history = list(self.ai_messages[-12:])
+        self.worker = AIWorker(prompt, context, selected_model, recent_history)
         self.worker.success.connect(self.ai_success)
         self.worker.failure.connect(self.ai_failure)
         self.worker.finished.connect(self.ai_finished)

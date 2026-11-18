@@ -34,6 +34,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path release | Out-Null
           Copy-Item dist/Stomake.exe release/Stomake.exe
           Copy-Item README.md release/README.txt
+          Copy-Item Install_Uncensored_Model.bat release/Install_Uncensored_Model.bat
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:

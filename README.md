@@ -103,3 +103,28 @@ Perbaikan error `cannot import name QGraphicsView from PySide6.QtGui`: kelas `QG
 - Writing editor is no longer constrained to a narrow centered 860px column.
 - The writing area starts at the left side of the central workspace and expands to fill the available width between the sidebar and AI panel.
 - Default paragraph alignment remains left; the text column is no longer centered by stretch spacers.
+
+
+## Stomake PC 1.0.9 — Local uncensored writing model
+
+Default AI model: `richardyoung/qwen2.5-3b-instruct-abliterated:latest` (Qwen2.5 3B Abliterated, Q4_K_M, about 1.9 GB). The model publisher describes it as an abliterated build with refusal tendencies removed. This is a community fine-tune, not an official Qwen release and not a guarantee of zero refusals.
+
+### Install the recommended model
+
+1. Install and open Ollama for Windows: https://ollama.com/download
+2. In Stomake PC's AI panel, choose **Qwen2.5 3B Abliterated** and click **Unduh**. The progress is shown inside the AI panel.
+3. Alternatively, run `Install_Uncensored_Model.bat`, or use PowerShell:
+
+```powershell
+ollama pull richardyoung/qwen2.5-3b-instruct-abliterated
+```
+
+4. Press the refresh button (↻) in the AI panel. The installed model is marked with ✓.
+
+The PC build also offers `dolphin-phi:latest` as a smaller uncensored alternative (about 1.6 GB, but only 2K context) and `dolphin-mistral:latest` as a much heavier 7B alternative (about 4.1 GB; not recommended for 8 GB RAM). Ollama models already installed on the computer are also detected automatically.
+
+### Settings for the older 8 GB laptop
+
+Stomake uses a 4,096-token context, up to 900 output tokens, temperature 0.95, and recent conversation history. These settings favor creative freedom while limiting memory use. Generation may still be slow; close browsers and other memory-heavy apps before a long writing session. A 1.9 GB model file does not mean the entire running model uses only 1.9 GB of RAM.
+
+The Stomake system prompt is tuned for fiction writing and avoids adding extra generic moralizing/refusal instructions. The model itself can still occasionally refuse or produce inconsistent text; no model can honestly be guaranteed to never refuse.
