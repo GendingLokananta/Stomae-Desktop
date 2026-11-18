@@ -32,6 +32,20 @@ jobs:
         with:
           maven-version: '3.9.9'
 
+      - name: Verify required Java sources are tracked
+        shell: pwsh
+        run: |
+          $required = @(
+            'src/main/java/id/stomake/data/Database.java',
+            'src/main/java/id/stomake/data/Repository.java'
+          )
+          foreach ($file in $required) {
+            git ls-files --error-unmatch $file | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              throw "Required Java source is not committed: $file. Check .gitignore; use /data/ instead of data/."
+            }
+          }
+
       - name: Build portable Windows application
         shell: pwsh
         run: ./Build-Windows.ps1

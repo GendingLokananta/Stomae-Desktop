@@ -1,6 +1,6 @@
 target/
 dist/
-data/
+/data/
 *.db
 *.db-shm
 *.db-wal

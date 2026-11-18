@@ -1,6 +1,6 @@
 # Stomake Desktop 2.1.2 — JavaFX
 
-Stomake 2.1.2 adalah aplikasi desktop untuk menulis cerita, mengatur worldbuilding, dan roleplay karakter AI. UI desktop menggunakan **Java 21 + JavaFX**; data cerita dan percakapan disimpan di SQLite. AI berjalan melalui **Ollama lokal**.
+Stomake 2.1.3 adalah aplikasi desktop untuk menulis cerita, mengatur worldbuilding, dan roleplay karakter AI. UI desktop menggunakan **Java 21 + JavaFX**; data cerita dan percakapan disimpan di SQLite. AI berjalan melalui **Ollama lokal**.
 
 ## Fitur JavaFX
 
@@ -63,10 +63,14 @@ Model uncensored mengurangi kecenderungan menolak, tetapi tidak menjamin penolak
 ```powershell
 git init -b main
 git add .
-git commit -m "Stomake 2.1.2 JavaFX"
+git add -f src/main/java/id/stomake/data/Database.java src/main/java/id/stomake/data/Repository.java
+git commit -m "Stomake 2.1.3 JavaFX"
 git remote add origin https://github.com/USERNAME/Stomake-Desktop.git
 git push -u origin main
 ```
+
+
+> **Penting untuk Git:** `.gitignore` harus memakai `/data/` untuk folder data runtime di root. Jangan memakai `data/` tanpa garis miring depan, karena Git akan mengabaikan folder package Java `src/main/java/id/stomake/data/`. Perintah `git add -f` di atas memastikan dua file inti ikut ter-commit.
 
 Kalau repository sudah memiliki remote dan branch, cukup salin file source ke folder repository, lalu jalankan `git add .`, `git commit`, dan `git push`.
 
