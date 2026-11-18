@@ -1,6 +1,6 @@
-# Stomake Desktop 2.1.1 — JavaFX
+# Stomake Desktop 2.1.2 — JavaFX
 
-Stomake 2.1.1 adalah aplikasi desktop untuk menulis cerita, mengatur worldbuilding, dan roleplay karakter AI. UI desktop menggunakan **Java 21 + JavaFX**; data cerita dan percakapan disimpan di SQLite. AI berjalan melalui **Ollama lokal**.
+Stomake 2.1.2 adalah aplikasi desktop untuk menulis cerita, mengatur worldbuilding, dan roleplay karakter AI. UI desktop menggunakan **Java 21 + JavaFX**; data cerita dan percakapan disimpan di SQLite. AI berjalan melalui **Ollama lokal**.
 
 ## Fitur JavaFX
 
@@ -56,14 +56,14 @@ Model uncensored mengurangi kecenderungan menolak, tetapi tidak menjamin penolak
 ### Cara memasukkan source ke GitHub
 
 1. Buat repository baru di GitHub, misalnya `Stomake-Desktop`. Pilih **Public** atau **Private** sesuai kebutuhan, dan biarkan repository benar-benar kosong (jangan centang Add a README, license, atau `.gitignore`).
-2. Ekstrak ZIP source Stomake, lalu buka terminal di folder `Stomake-2.1.1` (folder yang berisi `pom.xml`, `Build-Windows.ps1`, dan `.github`).
+2. Ekstrak ZIP source Stomake, lalu buka terminal di folder `Stomake-2.1.2` (folder yang berisi `pom.xml`, `Build-Windows.ps1`, dan `.github`).
 3. Pastikan `.github/workflows/build-windows.yml` ikut terunggah. Jangan unggah database pribadi atau backup berisi naskah.
 4. Jalankan perintah berikut setelah mengganti URL repository dengan milikmu:
 
 ```powershell
 git init -b main
 git add .
-git commit -m "Stomake 2.1.1 JavaFX"
+git commit -m "Stomake 2.1.2 JavaFX"
 git remote add origin https://github.com/USERNAME/Stomake-Desktop.git
 git push -u origin main
 ```
@@ -76,7 +76,7 @@ Kalau repository sudah memiliki remote dan branch, cukup salin file source ke fo
 2. Pilih workflow **Build Stomake Windows**. Workflow berjalan otomatis saat ada push ke branch repository mana pun; kamu juga bisa memilih **Run workflow** untuk menjalankannya manual.
 3. Buka hasil run terbaru dan cari bagian **Artifacts**.
 4. Unduh artifact **Stomake-Windows-x64**. Di dalamnya ada ZIP aplikasi Windows dan file checksum.
-5. Ekstrak `Stomake-2.1.1-Windows-x64.zip` secara utuh, lalu jalankan `Stomake.exe` di dalam folder `Stomake`.
+5. Ekstrak `Stomake-2.1.2-Windows-x64.zip` secara utuh, lalu jalankan `Stomake.exe` di dalam folder `Stomake`.
 
 ### Apa yang dihasilkan?
 

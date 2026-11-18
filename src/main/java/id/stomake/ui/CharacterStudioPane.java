@@ -287,7 +287,8 @@ public final class CharacterStudioPane extends BorderPane {
             if (selected != null) temperature = selected.temperature();
             CharacterProfile value = new CharacterProfile(id, name.getText().trim(), value(role), value(description), value(personality), value(traits),
                     value(background), value(appearance), value(speakingStyle), value(scenario), value(greeting), value(extraInstructions),
-                    value(relationship), value(motivations), value(flaws), value(secrets), value(memoryNotes), value(modelBox.getValue()), temperature);
+                    value(relationship), value(motivations), value(flaws), value(secrets), value(memoryNotes),
+                    (modelBox.getValue() == null ? "" : modelBox.getValue()), temperature);
             long savedId = repo.saveCharacter(value);
             selected = repo.character(savedId);
             int existingIndex = -1;

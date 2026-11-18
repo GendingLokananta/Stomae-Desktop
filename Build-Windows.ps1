@@ -6,6 +6,20 @@ $Version = (Get-Content 'VERSION' -Raw).Trim()
 if ([string]::IsNullOrWhiteSpace($Version)) { throw 'VERSION is empty.' }
 
 Write-Host "Building Stomake $Version for Windows x64..." -ForegroundColor Cyan
+
+$RequiredSources = @(
+    'src/main/java/id/stomake/App.java',
+    'src/main/java/id/stomake/data/Database.java',
+    'src/main/java/id/stomake/data/Repository.java',
+    'src/main/java/id/stomake/ai/OllamaClient.java',
+    'src/main/java/id/stomake/ui/MainView.java',
+    'src/main/java/id/stomake/ui/CharacterStudioPane.java'
+)
+foreach ($Source in $RequiredSources) {
+    if (-not (Test-Path (Join-Path $Root $Source))) {
+        throw "Required source file is missing: $Source. Re-download the complete Stomake source ZIP."
+    }
+}
 if (-not (Get-Command mvn -ErrorAction SilentlyContinue)) {
     throw 'Maven 3.9+ is required on this build machine. GitHub Actions installs it automatically.'
 }

@@ -214,13 +214,13 @@ public final class MainView extends BorderPane {
         Button edit = new Button("Edit cerita"); edit.getStyleClass().add("button-primary");
         edit.setOnAction(e -> openEditor(project.id()));
         Button menu = new Button("•••"); menu.getStyleClass().add("button-quiet");
-        menu.setOnAction(e -> projectMenu(project));
+        menu.setOnAction(e -> projectMenu(project, menu));
         actions.getChildren().addAll(read, edit, menu);
         card.getChildren().addAll(cover, title, synopsis, actions);
         return card;
     }
 
-    private void projectMenu(Project project) {
+    private void projectMenu(Project project, Node anchor) {
         ContextMenu menu = new ContextMenu();
         MenuItem rename = new MenuItem("Ganti nama");
         rename.setOnAction(e -> {
@@ -234,7 +234,7 @@ public final class MainView extends BorderPane {
         MenuItem delete = new MenuItem("Hapus cerita");
         delete.setOnAction(e -> confirm("Hapus cerita", "Proyek dan data yang terhubung akan dihapus. Lanjutkan?", () -> runUi(() -> repo.deleteProject(project.id()), this::showHome)));
         menu.getItems().addAll(rename, cover, read, new SeparatorMenuItem(), stomake, word, new SeparatorMenuItem(), delete);
-        menu.show(stage.getScene().getWindow(), javafx.geometry.Side.BOTTOM, 0, 0);
+        menu.show(anchor, javafx.geometry.Side.BOTTOM, 0, 0);
     }
 
     private void editProjectCover(Project project) {

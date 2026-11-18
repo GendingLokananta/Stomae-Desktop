@@ -29,7 +29,7 @@ public class App extends Application {
         Scene scene = new Scene(root, 1280, 760);
         var css = getClass().getResource("/id/stomake/theme.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
-        stage.setTitle("Stomake 2.1.1 — Writing & Character Studio");
+        stage.setTitle("Stomake 2.1.2 — Writing & Character Studio");
         stage.setMinWidth(1040);
         stage.setMinHeight(640);
         stage.setScene(scene);
