@@ -21,6 +21,7 @@ import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.MouseEvent;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
@@ -251,7 +252,7 @@ public final class MainView extends BorderPane {
         Region spacer = new Region(); VBox.setVgrow(spacer, Priority.ALWAYS);
         VBox footer = new VBox(10);
         Label localText = new Label("DATA TERSIMPAN LOKAL"); localText.getStyleClass().add("local-note");
-        Label version = new Label("STOMAKE 2.2.2  ·  JAVA"); version.getStyleClass().add("version-label");
+        Label version = new Label("STOMAKE 2.2.3  ·  JAVA"); version.getStyleClass().add("version-label");
         footer.getChildren().addAll(localText, version);
         side.getChildren().addAll(logoRow, new Separator(), nav, spacer, footer);
         return side;
@@ -535,12 +536,15 @@ public final class MainView extends BorderPane {
             fontPicker.getItems().addAll("Garamond", "Times New Roman", "Courier New", "Arial", "Georgia");
             fontPicker.setValue("Garamond"); fontPicker.setPrefWidth(150); fontPicker.setMinWidth(135);
             fontPicker.setTooltip(new Tooltip("Jenis huruf"));
+            preserveSelectionOnPress(fontPicker);
             fontPicker.setOnAction(e -> { if (!updatingControls && fontPicker.getValue() != null) setFont(fontPicker.getValue()); });
 
             sizePicker = new Spinner<>(6, 200, 12);
             sizePicker.setEditable(true); sizePicker.setPrefWidth(82); sizePicker.setMinWidth(78);
             sizePicker.getStyleClass().add("font-size-control");
             sizePicker.setTooltip(new Tooltip("Ukuran font (pt). Indikator ini tetap berukuran tetap."));
+            preserveSelectionOnPress(sizePicker);
+            preserveSelectionOnPress(sizePicker.getEditor());
             sizePicker.valueProperty().addListener((obs, oldValue, newValue) -> {
                 if (!updatingControls && newValue != null) setFontSize(newValue);
             });
@@ -553,6 +557,7 @@ public final class MainView extends BorderPane {
             headingPicker.getItems().addAll("Paragraf", "Heading 1", "Heading 2", "Heading 3");
             headingPicker.setValue("Paragraf"); headingPicker.setPrefWidth(132); headingPicker.setMinWidth(120);
             headingPicker.setTooltip(new Tooltip("Gaya paragraf"));
+            preserveSelectionOnPress(headingPicker);
             headingPicker.setOnAction(e -> {
                 if (!updatingControls && headingPicker.getValue() != null) {
                     command("formatBlock", switch (headingPicker.getValue()) {
@@ -565,6 +570,7 @@ public final class MainView extends BorderPane {
             alignmentPicker.getItems().addAll("Kiri", "Tengah", "Kanan");
             alignmentPicker.setValue("Kiri"); alignmentPicker.setPrefWidth(115); alignmentPicker.setMinWidth(105);
             alignmentPicker.setTooltip(new Tooltip("Perataan paragraf"));
+            preserveSelectionOnPress(alignmentPicker);
             alignmentPicker.setOnAction(e -> {
                 if (!updatingControls && alignmentPicker.getValue() != null) {
                     command(switch (alignmentPicker.getValue()) {
@@ -583,7 +589,7 @@ public final class MainView extends BorderPane {
             actionTools.setPrefWrapLength(1080);
             actionTools.setMaxWidth(Double.MAX_VALUE);
             Button list = tool("•  List", () -> command("insertUnorderedList"));
-            Button insertImage = new Button("＋  Gambar"); insertImage.getStyleClass().add("button-quiet"); insertImage.setOnAction(e -> insertChapterImage());
+            Button insertImage = new Button("＋  Gambar"); insertImage.getStyleClass().add("button-quiet"); preserveSelectionOnPress(insertImage); insertImage.setOnAction(e -> insertChapterImage());
             Button ai = new Button("✧  AI Penulis"); ai.getStyleClass().add("button-quiet"); ai.setOnAction(e -> showAiWriter());
             MenuButton more = new MenuButton("Lainnya ▾"); more.getStyleClass().add("button-quiet");
             MenuItem reader = new MenuItem("Mode baca"); reader.setOnAction(e -> openReader(project));
@@ -625,10 +631,20 @@ public final class MainView extends BorderPane {
             return separator;
         }
 
+        private void preserveSelectionOnPress(Node node) {
+            node.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> rememberEditorSelection());
+        }
+
+        private void rememberEditorSelection() {
+            try { engine.executeScript("window.stomakeRememberSelection && window.stomakeRememberSelection()"); }
+            catch (Exception ignored) { }
+        }
+
         private ToggleButton formatToggle(String text, String tooltip, String command) {
             ToggleButton button = new ToggleButton(text);
             button.getStyleClass().add("format-toggle");
             button.setTooltip(new Tooltip(tooltip));
+            preserveSelectionOnPress(button);
             button.setOnAction(e -> {
                 if (!updatingControls) command(command);
             });
@@ -638,6 +654,7 @@ public final class MainView extends BorderPane {
         private Button tool(String text, Runnable action) {
             Button button = new Button(text);
             button.getStyleClass().add("format-button");
+            preserveSelectionOnPress(button);
             button.setOnAction(e -> action.run());
             return button;
         }
@@ -645,24 +662,24 @@ public final class MainView extends BorderPane {
         private void command(String name) { command(name, null); }
         private void command(String name, String value) {
             String script = "window.stomakeCommand(" + jsQuote(name) + "," + (value == null ? "null" : jsQuote(value)) + ")";
-            engine.executeScript(script);
+            Object changed = engine.executeScript(script);
             webView.requestFocus();
-            saveDelay.playFromStart();
+            if (Boolean.TRUE.equals(changed)) saveDelay.playFromStart();
             updateFormattingFromSelection();
         }
 
         private void setFont(String family) {
-            engine.executeScript("window.stomakeSetFont(" + jsQuote(family) + ")");
+            Object changed = engine.executeScript("window.stomakeSetFont(" + jsQuote(family) + ")");
             webView.requestFocus();
-            saveDelay.playFromStart();
+            if (Boolean.TRUE.equals(changed)) saveDelay.playFromStart();
             updateFormattingFromSelection();
         }
 
         private void setFontSize(int pt) {
             int clamped = Math.max(6, Math.min(200, pt));
-            engine.executeScript("window.stomakeSetFontSize(" + clamped + ")");
+            Object changed = engine.executeScript("window.stomakeSetFontSize(" + clamped + ")");
             webView.requestFocus();
-            saveDelay.playFromStart();
+            if (Boolean.TRUE.equals(changed)) saveDelay.playFromStart();
             updateFormattingFromSelection();
         }
 
@@ -689,8 +706,11 @@ public final class MainView extends BorderPane {
             updatingControls = true;
             try {
                 int pt = Math.max(6, Math.min(200, format.fontSize()));
-                sizePicker.getValueFactory().setValue(pt);
-                sizePicker.getEditor().setText(Integer.toString(pt));
+                // Do not overwrite a size value while the user is actively typing in the spinner editor.
+                if (!sizePicker.getEditor().isFocused()) {
+                    sizePicker.getValueFactory().setValue(pt);
+                    sizePicker.getEditor().setText(Integer.toString(pt));
+                }
                 if (fontPicker.getItems().contains(format.fontFamily())) fontPicker.setValue(format.fontFamily());
                 boldButton.setSelected(format.bold());
                 italicButton.setSelected(format.italic());
@@ -736,22 +756,319 @@ public final class MainView extends BorderPane {
         }
 
         private String editorBootstrapScript() {
-            return "(function(){" +
-                    "window.__stomakeLastRange=null;" +
-                    "function remember(){var s=window.getSelection();if(!s||!s.rangeCount)return;var r=s.getRangeAt(0);if(document.body.contains(r.commonAncestorContainer))window.__stomakeLastRange=r.cloneRange();}" +
-                    "function restore(){var s=window.getSelection();if(window.__stomakeLastRange){s.removeAllRanges();s.addRange(window.__stomakeLastRange);}}" +
-                    "function active(){var s=window.getSelection();var n=s&&s.anchorNode;var e=n?(n.nodeType===3?n.parentElement:n):document.body;if(!e||!document.body.contains(e))e=document.body;return e;}" +
-                    "function block(e){while(e&&e!==document.body&&!/^(P|DIV|H1|H2|H3|LI|BLOCKQUOTE)$/.test(e.tagName))e=e.parentElement;return e||document.body;}" +
-                    "window.stomakeUpdateFormat=function(){try{remember();var e=active(),b=block(e),cs=getComputedStyle(e),bs=getComputedStyle(b),px=parseFloat(cs.fontSize)||16,pt=Math.round(px*.75),family=(cs.fontFamily||'Garamond').split(',')[0].replace(/[\"']/g,'').trim();var dec=(cs.textDecorationLine||cs.textDecoration||'').toLowerCase();var weight=parseInt(cs.fontWeight,10)||400;var tag=e.tagName||'';var btag=(b.tagName||'P').toLowerCase();window.stomakeBridge.selectionChanged(String(pt),family,weight>=600||!!(e.closest&&e.closest('b,strong')),cs.fontStyle==='italic'||!!(e.closest&&e.closest('i,em')),dec.indexOf('underline')>=0||!!(e.closest&&e.closest('u')),dec.indexOf('line-through')>=0||!!(e.closest&&e.closest('s,strike,del')),bs.textAlign||'left',btag);}catch(x){}};" +
-                    "window.stomakeCommand=function(c,v){restore();document.execCommand('styleWithCSS',false,true);document.execCommand(c,false,v);remember();window.stomakeUpdateFormat();};" +
-                    "window.stomakeSetFont=function(f){restore();document.execCommand('styleWithCSS',false,true);document.execCommand('fontName',false,f);remember();window.stomakeUpdateFormat();};" +
-                    "window.stomakeSetFontSize=function(pt){restore();var s=window.getSelection();if(!s||!s.rangeCount)return;var r=s.getRangeAt(0).cloneRange();if(!r.collapsed){var walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode()){var n=walker.currentNode;try{if(n.nodeValue&&n.nodeValue.length&&r.intersectsNode(n))nodes.push(n);}catch(x){}}var spans=[];nodes.forEach(function(n){var start=n===r.startContainer?r.startOffset:0;var end=n===r.endContainer?r.endOffset:n.nodeValue.length;start=Math.max(0,Math.min(start,n.nodeValue.length));end=Math.max(start,Math.min(end,n.nodeValue.length));if(end<=start)return;var part=n;if(start>0)part=n.splitText(start);if(end-start<part.nodeValue.length)part.splitText(end-start);var span=document.createElement('span');span.style.fontSize=pt+'pt';part.parentNode.insertBefore(span,part);span.appendChild(part);spans.push(span);});if(spans.length){var nr=document.createRange();nr.setStartBefore(spans[0]);nr.setEndAfter(spans[spans.length-1]);s.removeAllRanges();s.addRange(nr);}}else{document.execCommand('styleWithCSS',false,false);document.execCommand('fontSize',false,'7');var a=s.anchorNode,e=a?(a.nodeType===3?a.parentElement:a):null;var f=e&&e.closest?e.closest('font[size=7]'):null;if(f){var span=document.createElement('span');span.style.fontSize=pt+'pt';while(f.firstChild)span.appendChild(f.firstChild);f.parentNode.replaceChild(span,f);}}remember();window.stomakeUpdateFormat();};" +
-                    "document.addEventListener('selectionchange',function(){remember();window.requestAnimationFrame(window.stomakeUpdateFormat);});" +
-                    "document.addEventListener('keyup',function(){remember();window.stomakeUpdateFormat();});" +
-                    "document.addEventListener('mouseup',function(){remember();window.stomakeUpdateFormat();});" +
-                    "document.addEventListener('input',function(){remember();window.stomakeBridge.inputChanged();window.stomakeUpdateFormat();});" +
-                    "window.stomakeUpdateFormat();" +
-                    "})()";
+            return """
+                    (function () {
+                      const editable = document.body;
+                      const ZWSP = String.fromCharCode(8203);
+                      window.__stomakeLastRange = null;
+                      window.__stomakeCaretMarker = null;
+                      window.__stomakePendingInline = null;
+
+                      // Earlier releases could leave <font size="7"> behind when the conversion failed.
+                      // WebKit renders that legacy value as 36 pt; normalize it to the editor default.
+                      editable.querySelectorAll('font[size="7"]').forEach(font => {
+                        const span = document.createElement('span');
+                        span.style.fontSize = '12pt';
+                        while (font.firstChild) span.appendChild(font.firstChild);
+                        font.parentNode.replaceChild(span, font);
+                      });
+
+                      function selection() { return window.getSelection(); }
+                      function remember(force) {
+                        try {
+                          const sel = selection();
+                          if (!sel || !sel.rangeCount) return;
+                          const range = sel.getRangeAt(0);
+                          if (!editable.contains(range.commonAncestorContainer)) return;
+                          if (!force && !document.hasFocus()) return;
+                          window.__stomakeLastRange = range.cloneRange();
+                        } catch (e) { }
+                      }
+                      function restore() {
+                        try {
+                          const sel = selection();
+                          const saved = window.__stomakeLastRange;
+                          if (!sel || !saved || !editable.contains(saved.commonAncestorContainer)) return false;
+                          sel.removeAllRanges();
+                          sel.addRange(saved);
+                          return true;
+                        } catch (e) { return false; }
+                      }
+                      function activeElement() {
+                        const sel = selection();
+                        const node = sel && sel.anchorNode;
+                        let element = node ? (node.nodeType === 1 ? node : node.parentElement) : editable;
+                        if (!element || !editable.contains(element)) element = editable;
+                        return element;
+                      }
+                      function activeBlock(element) {
+                        let block = element;
+                        while (block && block !== editable && !/^(P|DIV|H1|H2|H3|LI|BLOCKQUOTE|PRE)$/.test(block.tagName)) {
+                          block = block.parentElement;
+                        }
+                        return block || editable;
+                      }
+                      function caretMarker(sel) {
+                        if (!sel || !sel.anchorNode) return null;
+                        let element = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+                        return element && element.closest ? element.closest('span[data-stomake-caret="1"]') : null;
+                      }
+                      function ensureCaretMarker() {
+                        const sel = selection();
+                        if (!sel || !sel.rangeCount || !sel.isCollapsed) return null;
+                        let marker = caretMarker(sel);
+                        if (marker) {
+                          window.__stomakeCaretMarker = marker;
+                          return marker;
+                        }
+                        const range = sel.getRangeAt(0);
+                        marker = document.createElement('span');
+                        marker.setAttribute('data-stomake-caret', '1');
+                        const text = document.createTextNode(ZWSP);
+                        marker.appendChild(text);
+                        range.insertNode(marker);
+                        const next = document.createRange();
+                        next.setStart(text, 1);
+                        next.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(next);
+                        window.__stomakeCaretMarker = marker;
+                        window.__stomakeLastRange = next.cloneRange();
+                        return marker;
+                      }
+                      function demoteOldCaretMarker() {
+                        const sel = selection();
+                        const marker = window.__stomakeCaretMarker;
+                        if (!marker || (sel && sel.anchorNode && marker.contains(sel.anchorNode))) return;
+                        marker.removeAttribute('data-stomake-caret');
+                        const walker = document.createTreeWalker(marker, NodeFilter.SHOW_TEXT);
+                        const texts = [];
+                        while (walker.nextNode()) texts.push(walker.currentNode);
+                        texts.forEach(node => { node.nodeValue = node.nodeValue.split(ZWSP).join(''); });
+                        if (!marker.textContent && !marker.children.length) marker.remove();
+                        window.__stomakeCaretMarker = null;
+                      }
+                      function cleanCurrentSentinel() {
+                        const sel = selection();
+                        const marker = caretMarker(sel);
+                        if (!marker) return;
+                        const walker = document.createTreeWalker(marker, NodeFilter.SHOW_TEXT);
+                        const texts = [];
+                        while (walker.nextNode()) texts.push(walker.currentNode);
+                        texts.forEach(node => {
+                          const index = node.nodeValue.indexOf(ZWSP);
+                          if (index < 0) return;
+                          let newOffset = null;
+                          if (sel && sel.anchorNode === node) {
+                            const before = node.nodeValue.slice(0, sel.anchorOffset).split(ZWSP).length - 1;
+                            newOffset = Math.max(0, sel.anchorOffset - before);
+                          }
+                          node.nodeValue = node.nodeValue.split(ZWSP).join('');
+                          if (newOffset !== null) {
+                            const range = document.createRange();
+                            range.setStart(node, Math.min(newOffset, node.nodeValue.length));
+                            range.collapse(true);
+                            sel.removeAllRanges();
+                            sel.addRange(range);
+                          }
+                        });
+                      }
+                      function stateFromCommand(command, fallback) {
+                        try {
+                          const value = document.queryCommandState(command);
+                          if (typeof value === 'boolean') return value;
+                        } catch (e) { }
+                        return fallback;
+                      }
+                      function inlineState(command, fallback) {
+                        const sel = selection();
+                        const pending = window.__stomakePendingInline;
+                        if (sel && sel.isCollapsed && pending && pending.command === command &&
+                            pending.node === sel.anchorNode && pending.offset === sel.anchorOffset) {
+                          return pending.value;
+                        }
+                        return stateFromCommand(command, fallback);
+                      }
+                      function applyRangeStyle(property, value) {
+                        const sel = selection();
+                        if (!sel || !sel.rangeCount) return false;
+                        if (sel.isCollapsed) {
+                          const marker = ensureCaretMarker();
+                          if (!marker) return false;
+                          marker.style[property] = value;
+                          remember(true);
+                          updateFormat();
+                          return false;
+                        }
+                        const range = sel.getRangeAt(0).cloneRange();
+                        const walker = document.createTreeWalker(editable, NodeFilter.SHOW_TEXT);
+                        const nodes = [];
+                        while (walker.nextNode()) {
+                          const node = walker.currentNode;
+                          if (!node.nodeValue || !node.nodeValue.length) continue;
+                          try { if (range.intersectsNode(node)) nodes.push(node); } catch (e) { }
+                        }
+                        const wrapped = [];
+                        for (let i = nodes.length - 1; i >= 0; i--) {
+                          const node = nodes[i];
+                          let start = node === range.startContainer ? range.startOffset : 0;
+                          let end = node === range.endContainer ? range.endOffset : node.nodeValue.length;
+                          start = Math.max(0, Math.min(start, node.nodeValue.length));
+                          end = Math.max(start, Math.min(end, node.nodeValue.length));
+                          if (end <= start) continue;
+                          let selectedNode = node;
+                          if (start > 0) selectedNode = node.splitText(start);
+                          if (end - start < selectedNode.nodeValue.length) selectedNode.splitText(end - start);
+                          const span = document.createElement('span');
+                          span.style[property] = value;
+                          selectedNode.parentNode.insertBefore(span, selectedNode);
+                          span.appendChild(selectedNode);
+                          wrapped.push(span);
+                        }
+                        if (!wrapped.length) return false;
+                        wrapped.reverse();
+                        const next = document.createRange();
+                        next.setStart(wrapped[0], 0);
+                        next.setEndAfter(wrapped[wrapped.length - 1]);
+                        sel.removeAllRanges();
+                        sel.addRange(next);
+                        window.__stomakeLastRange = next.cloneRange();
+                        updateFormat();
+                        return true;
+                      }
+                      function updateFormat() {
+                        try {
+                          const sel = selection();
+                          const element = activeElement();
+                          const block = activeBlock(element);
+                          const style = getComputedStyle(element);
+                          const blockStyle = getComputedStyle(block);
+                          const px = parseFloat(style.fontSize) || 16;
+                          const pt = Math.max(6, Math.min(200, Math.round(px * 0.75)));
+                          const family = (style.fontFamily || 'Garamond').split(',')[0].replace(/["']/g, '').trim();
+                          const marker = caretMarker(sel);
+                          const weight = parseInt(style.fontWeight, 10) || 400;
+                          const decoration = (style.textDecorationLine || style.textDecoration || '').toLowerCase();
+                          const boldFallback = weight >= 600 || !!element.closest('b,strong');
+                          const italicFallback = style.fontStyle === 'italic' || !!element.closest('i,em');
+                          const underlineFallback = decoration.indexOf('underline') >= 0 || !!element.closest('u,ins');
+                          const strikeFallback = decoration.indexOf('line-through') >= 0 || !!element.closest('s,strike,del');
+                          const bold = inlineState('bold', boldFallback);
+                          const italic = inlineState('italic', italicFallback);
+                          const underline = inlineState('underline', underlineFallback);
+                          const strike = inlineState('strikeThrough', strikeFallback);
+                          const blockTag = (block.tagName || 'P').toLowerCase();
+                          window.stomakeBridge.selectionChanged(String(pt), family, bold, italic, underline, strike,
+                            blockStyle.textAlign || 'left', blockTag);
+                        } catch (e) { }
+                      }
+
+                      window.stomakeRememberSelection = function () { remember(true); };
+                      window.stomakeUpdateFormat = updateFormat;
+                      window.stomakeCommand = function (command, value) {
+                        restore();
+                        const sel = selection();
+                        const collapsed = !!(sel && sel.rangeCount && sel.isCollapsed);
+                        const inline = ['bold', 'italic', 'underline', 'strikeThrough'].indexOf(command) >= 0;
+                        let before = false;
+                        if (collapsed && inline) {
+                          const element = activeElement();
+                          const style = getComputedStyle(element);
+                          const decoration = (style.textDecorationLine || style.textDecoration || '').toLowerCase();
+                          const fallback = command === 'bold'
+                            ? ((parseInt(style.fontWeight, 10) || 400) >= 600 || !!element.closest('b,strong'))
+                            : command === 'italic'
+                              ? (style.fontStyle === 'italic' || !!element.closest('i,em'))
+                              : command === 'underline'
+                                ? (decoration.indexOf('underline') >= 0 || !!element.closest('u,ins'))
+                                : (decoration.indexOf('line-through') >= 0 || !!element.closest('s,strike,del'));
+                          before = inlineState(command, fallback);
+                        }
+                        document.execCommand('styleWithCSS', false, true);
+                        document.execCommand(command, false, value);
+                        if (collapsed && inline) {
+                          const afterSel = selection();
+                          window.__stomakePendingInline = afterSel ? {
+                            command: command,
+                            value: !before,
+                            node: afterSel.anchorNode,
+                            offset: afterSel.anchorOffset
+                          } : null;
+                        } else {
+                          window.__stomakePendingInline = null;
+                        }
+                        remember(true);
+                        updateFormat();
+                        return !(collapsed && inline);
+                      };
+                      window.stomakeSetFont = function (family) {
+                        restore();
+                        const sel = selection();
+                        if (!sel || !sel.rangeCount) return false;
+                        if (sel.isCollapsed) {
+                          const marker = ensureCaretMarker();
+                          if (!marker) return false;
+                          marker.style.fontFamily = family;
+                          remember(true);
+                          updateFormat();
+                          return false;
+                        }
+                        const changed = applyRangeStyle('fontFamily', family);
+                        remember(true);
+                        return changed;
+                      };
+                      window.stomakeSetFontSize = function (pt) {
+                        restore();
+                        const size = Math.max(6, Math.min(200, Number(pt) || 12));
+                        const changed = applyRangeStyle('fontSize', size + 'pt');
+                        remember(true);
+                        updateFormat();
+                        return changed;
+                      };
+                      window.stomakeCleanHtml = function () {
+                        const copy = editable.cloneNode(true);
+                        copy.querySelectorAll('span[data-stomake-caret="1"]').forEach(marker => {
+                          marker.removeAttribute('data-stomake-caret');
+                          const walker = document.createTreeWalker(marker, NodeFilter.SHOW_TEXT);
+                          const texts = [];
+                          while (walker.nextNode()) texts.push(walker.currentNode);
+                          texts.forEach(node => { node.nodeValue = node.nodeValue.split(ZWSP).join(''); });
+                          if (!marker.textContent && !marker.children.length) marker.remove();
+                        });
+                        return copy.innerHTML;
+                      };
+
+                      document.addEventListener('selectionchange', function () {
+                        const sel = selection();
+                        if (document.hasFocus() && sel && sel.anchorNode && editable.contains(sel.anchorNode)) {
+                          const pending = window.__stomakePendingInline;
+                          if (pending && (!sel.isCollapsed || pending.node !== sel.anchorNode || pending.offset !== sel.anchorOffset)) {
+                            window.__stomakePendingInline = null;
+                          }
+                          demoteOldCaretMarker();
+                          remember(false);
+                          window.requestAnimationFrame(updateFormat);
+                        }
+                      });
+                      document.addEventListener('keyup', function () {
+                        remember(false);
+                        updateFormat();
+                      });
+                      document.addEventListener('mouseup', function () {
+                        remember(false);
+                        updateFormat();
+                      });
+                      document.addEventListener('input', function () {
+                        cleanCurrentSentinel();
+                        window.__stomakePendingInline = null;
+                        remember(true);
+                        window.stomakeBridge.inputChanged();
+                        updateFormat();
+                      });
+                      document.addEventListener('focusin', function () { updateFormat(); });
+                      updateFormat();
+                    })();
+                    """;
         }
 
         private String editorHtml(String body) {
@@ -800,7 +1117,7 @@ public final class MainView extends BorderPane {
         private void saveCurrentQuietly() {
             if (current == null || loading) return;
             try {
-                Object htmlObj = engine.executeScript("document.body.innerHTML");
+                Object htmlObj = engine.executeScript("window.stomakeCleanHtml ? window.stomakeCleanHtml() : document.body.innerHTML");
                 Object textObj = engine.executeScript("document.body.innerText");
                 String html = htmlObj == null ? "" : htmlObj.toString();
                 String text = textObj == null ? "" : textObj.toString();

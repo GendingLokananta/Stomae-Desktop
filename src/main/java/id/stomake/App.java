@@ -40,7 +40,7 @@ public class App extends Application {
         });
         var css = getClass().getResource("/id/stomake/theme.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
-        stage.setTitle("Stomake 2.2.2 — Story Maker & Roleplay");
+        stage.setTitle("Stomake 2.2.3 — Story Maker & Roleplay");
         stage.setMinWidth(980);
         stage.setMinHeight(620);
         stage.setScene(scene);

@@ -380,7 +380,7 @@
 .reader-toc .list-cell { -fx-text-fill: #d3d1df; -fx-background-color: #171a24; -fx-padding: 10 12; }
 .reader-toc .list-cell:selected { -fx-background-color: #302a49; -fx-text-fill: #e5dcff; }
 
-/* 2.2.2 editor typography controls: fixed-size toolbar indicators and visible toggle states. */
+/* 2.2.3 editor typography controls: fixed-size toolbar indicators and visible toggle states. */
 .app-root.light-theme .writing-webview, .app-root.light-theme .writing-webview .web-view { -fx-background-color: #f6f7fb; }
 .app-root.warm-theme .writing-webview, .app-root.warm-theme .writing-webview .web-view { -fx-background-color: #f4eee4; }
 .app-root.slate-theme .writing-webview, .app-root.slate-theme .writing-webview .web-view { -fx-background-color: #26313d; }
