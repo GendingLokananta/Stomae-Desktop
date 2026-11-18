@@ -42,7 +42,19 @@ public final class MainView extends BorderPane {
     private final OllamaClient ollama;
     private final StoryTransferService transfer;
     private final StackPane pageHost = new StackPane();
+    private final StackPane modeHost = new StackPane();
+    private final VBox modeRail = new VBox(10);
     private final Label pageTitle = new Label("Beranda");
+    private VBox storySidebar;
+    private BorderPane storyWorkspace;
+    private HBox storyLayout;
+    private CharacterStudioPane roleplayPane;
+    private Button storyModeButton;
+    private Button roleplayModeButton;
+    private Button collapseModeButton;
+    private boolean modeRailCollapsed;
+    private boolean roleplayMode;
+    private String activeStoryTitle = "Beranda";
     private long activeProjectId = -1;
     private EditorView activeEditor;
     private CharacterStudioPane activeCharacterStudio;
@@ -56,10 +68,114 @@ public final class MainView extends BorderPane {
         this.ollama = ollama;
         this.transfer = new StoryTransferService(database);
         getStyleClass().add("app-root");
-        setLeft(buildSidebar());
-        setCenter(buildWorkspace());
+        storySidebar = (VBox) buildSidebar();
+        storyWorkspace = (BorderPane) buildWorkspace();
+        storyLayout = new HBox(0, storySidebar, storyWorkspace);
+        HBox.setHgrow(storyWorkspace, Priority.ALWAYS);
+        setTop(new WindowChrome(stage));
+        setCenter(buildMainShell());
         try { applyTheme(repo.setting("theme", "Dark")); } catch (Exception ignored) { applyTheme("Dark"); }
         showHome();
+    }
+
+    private Node buildMainShell() {
+        HBox shell = new HBox(0);
+        shell.getStyleClass().add("main-shell");
+        modeRail.getStyleClass().add("mode-rail");
+        modeRail.setPrefWidth(150);
+        modeRail.setMinWidth(150);
+        modeRail.setPadding(new Insets(14, 10, 14, 10));
+
+        collapseModeButton = new Button("‹  Sembunyikan");
+        collapseModeButton.getStyleClass().add("mode-collapse-button");
+        collapseModeButton.setMaxWidth(Double.MAX_VALUE);
+        collapseModeButton.setOnAction(e -> toggleModeRail());
+
+        storyModeButton = modeButton("▤", "Story Maker", this::activateStoryMode);
+        roleplayModeButton = modeButton("✧", "Roleplay", this::activateRoleplayMode);
+
+        VBox choices = new VBox(7, storyModeButton, roleplayModeButton);
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+        Button settings = modeButton("⚙", "Pengaturan", this::showSettings);
+        Label local = new Label("TERSIMPAN LOKAL");
+        local.getStyleClass().add("mode-rail-note");
+        modeRail.getChildren().addAll(collapseModeButton, choices, spacer, settings, local);
+        modeHost.getStyleClass().add("mode-host");
+        modeHost.getChildren().setAll(storyLayout);
+        HBox.setHgrow(modeHost, Priority.ALWAYS);
+        shell.getChildren().addAll(modeRail, modeHost);
+        updateModeRailLabels();
+        updateModeSelection(false);
+        return shell;
+    }
+
+    private Button modeButton(String icon, String label, Runnable action) {
+        Button button = new Button(icon + "   " + label);
+        button.getStyleClass().add("mode-button");
+        button.setMaxWidth(Double.MAX_VALUE);
+        button.setAlignment(Pos.CENTER_LEFT);
+        button.setOnAction(e -> action.run());
+        button.setUserData(label);
+        return button;
+    }
+
+    private void toggleModeRail() {
+        modeRailCollapsed = !modeRailCollapsed;
+        modeRail.setPrefWidth(modeRailCollapsed ? 60 : 150);
+        modeRail.setMinWidth(modeRailCollapsed ? 60 : 150);
+        modeRail.setMaxWidth(modeRailCollapsed ? 60 : 150);
+        updateModeRailLabels();
+    }
+
+    private void updateModeRailLabels() {
+        if (storyModeButton != null) storyModeButton.setText(modeRailCollapsed ? "▤" : "▤   Story Maker");
+        if (roleplayModeButton != null) roleplayModeButton.setText(modeRailCollapsed ? "✧" : "✧   Roleplay");
+        if (collapseModeButton != null) collapseModeButton.setText(modeRailCollapsed ? "›" : "‹  Sembunyikan");
+        for (Node node : modeRail.getChildren()) {
+            if (node instanceof Button button && "Pengaturan".equals(button.getUserData()))
+                button.setText(modeRailCollapsed ? "⚙" : "⚙   Pengaturan");
+        }
+    }
+
+    private void updateModeSelection(boolean roleplay) {
+        if (storyModeButton != null) {
+            storyModeButton.getStyleClass().remove("mode-selected");
+            roleplayModeButton.getStyleClass().remove("mode-selected");
+            (roleplay ? roleplayModeButton : storyModeButton).getStyleClass().add("mode-selected");
+        }
+    }
+
+    private void activateStoryMode() {
+        if (roleplayMode && roleplayPane != null) roleplayPane.savePendingProfile();
+        if (activeEditor != null && activePage.equals("editor")) activeEditor.saveCurrentQuietly();
+        roleplayMode = false;
+        modeHost.getChildren().setAll(storyLayout);
+        pageTitle.setText(activeStoryTitle);
+        updateModeSelection(false);
+    }
+
+    private void activateRoleplayMode() {
+        if (activeEditor != null) activeEditor.saveCurrentQuietly();
+        if (activeCharacterStudio != null) activeCharacterStudio.savePendingProfile();
+        if (roleplayPane == null) {
+            roleplayPane = new CharacterStudioPane(repo, ollama, this::openStoryBibleForProject, this::showSettings);
+        }
+        activeCharacterStudio = roleplayPane;
+        roleplayMode = true;
+        modeHost.getChildren().setAll(roleplayPane);
+        pageTitle.setText("Roleplay");
+        updateModeSelection(true);
+    }
+
+    private void openStoryBibleForProject(Project project) {
+        if (project != null) activeProjectId = project.id();
+        activateStoryMode();
+        showBible();
+    }
+
+    public void toggleFullScreen() {
+        stage.setFullScreen(!stage.isFullScreen());
     }
 
     private Node buildWorkspace() {
@@ -89,12 +205,12 @@ public final class MainView extends BorderPane {
     private Node buildSidebar() {
         VBox side = new VBox(10);
         side.getStyleClass().add("sidebar");
-        side.setPrefWidth(236);
-        side.setMinWidth(216);
+        side.setPrefWidth(216);
+        side.setMinWidth(192);
         HBox logoRow = new HBox(10);
         logoRow.setAlignment(Pos.CENTER_LEFT);
         Label logo = new Label("S"); logo.getStyleClass().add("logo-mark");
-        VBox logoText = new VBox(0, new Label("STOMAKE"), new Label("STUDIO 2.1"));
+        VBox logoText = new VBox(0, new Label("STOMAKE"), new Label("STUDIO 2.2"));
         logoText.getStyleClass().add("logo-copy");
         ((Label) logoText.getChildren().get(1)).getStyleClass().add("logo-subtitle");
         logoRow.getChildren().addAll(logo, logoText);
@@ -104,7 +220,6 @@ public final class MainView extends BorderPane {
         addNav(nav, "⌂", "Beranda", "home", this::showHome);
         addNav(nav, "▤", "Editor cerita", "editor", this::showEditorForActive);
         addNav(nav, "◈", "Story Bible", "bible", this::showBible);
-        addNav(nav, "✧", "Studio Karakter", "characters", this::showCharacterStudio);
         addNav(nav, "◎", "Relasi Karakter", "relationships", this::showRelationships);
         addNav(nav, "◌", "AI Penulis", "writer", this::showAiWriter);
         Label organizeLabel = new Label("ORGANISASI"); organizeLabel.getStyleClass().add("nav-section-title");
@@ -114,12 +229,8 @@ public final class MainView extends BorderPane {
         Region spacer = new Region(); VBox.setVgrow(spacer, Priority.ALWAYS);
         VBox footer = new VBox(10);
         Label localText = new Label("DATA TERSIMPAN LOKAL"); localText.getStyleClass().add("local-note");
-        Button settings = new Button("⚙   Pengaturan & Model AI");
-        settings.getStyleClass().add("sidebar-settings");
-        settings.setMaxWidth(Double.MAX_VALUE);
-        settings.setOnAction(e -> showSettings());
-        Label version = new Label("STOMAKE 2.1.1  ·  JAVA"); version.getStyleClass().add("version-label");
-        footer.getChildren().addAll(localText, settings, version);
+        Label version = new Label("STOMAKE 2.2.0  ·  JAVA"); version.getStyleClass().add("version-label");
+        footer.getChildren().addAll(localText, version);
         side.getChildren().addAll(logoRow, new Separator(), nav, spacer, footer);
         return side;
     }
@@ -136,10 +247,10 @@ public final class MainView extends BorderPane {
 
     private void setActiveNav(String key, String title) {
         pageTitle.setText(title);
+        activeStoryTitle = title;
         activePage = key;
-        Node left = getLeft();
-        if (left instanceof VBox side) {
-            for (Node n : side.lookupAll(".nav-button")) {
+        if (storySidebar != null) {
+            for (Node n : storySidebar.lookupAll(".nav-button")) {
                 if (n instanceof Button b) {
                     boolean selected = key.equals(b.getUserData());
                     b.getStyleClass().remove("nav-selected");
@@ -150,6 +261,7 @@ public final class MainView extends BorderPane {
     }
 
     private void showPage(Node node, String key, String title) {
+        if (roleplayMode) activateStoryMode();
         if (activeEditor != null && !"editor".equals(key)) activeEditor.saveCurrentQuietly();
         if (activeCharacterStudio != null && !"characters".equals(key)) activeCharacterStudio.savePendingProfile();
         pageHost.getChildren().setAll(node);
@@ -163,6 +275,7 @@ public final class MainView extends BorderPane {
     }
 
     private void showHome() {
+        if (roleplayMode) activateStoryMode();
         VBox root = new VBox(22);
         root.getStyleClass().add("page-content");
         HBox hero = new HBox(20);
@@ -484,9 +597,8 @@ public final class MainView extends BorderPane {
         private final ListView<StoryRecord> recordList = new ListView<>();
         private final TextField name = new TextField();
         private final TextField category = new TextField();
-        private final TextField role = new TextField();
+        private final ComboBox<String> role = new ComboBox<>();
         private final TextArea details = new TextArea();
-        private final TextArea traits = new TextArea();
         private final ImageView imagePreview = new ImageView();
         private final ListView<String> galleryList = new ListView<>();
         private final List<GalleryImage> galleryItems = new ArrayList<>();
@@ -499,6 +611,18 @@ public final class MainView extends BorderPane {
 
         BibleView() throws Exception {
             getStyleClass().add("page-content");
+            role.setEditable(true);
+            role.setPromptText("Pilih atau tulis peran karakter...");
+            role.getItems().setAll("Protagonist", "Antagonist", "Deuteragonist", "Supporting Character",
+                    "Mentor", "Rival", "Love Interest", "Friend", "Family", "NPC", "Original Character", "Custom");
+            role.setCellFactory(list -> new ListCell<>() {
+                @Override protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    setText(empty || item == null ? null : item);
+                    if (!empty && item != null) setTooltip(new Tooltip(storyRoleHint(item)));
+                    else setTooltip(null);
+                }
+            });
             projectBox.getItems().setAll(repo.projects());
             if (activeProjectId > 0) projectBox.getItems().stream().filter(p -> p.id() == activeProjectId).findFirst().ifPresent(projectBox::setValue);
             if (projectBox.getValue() == null && !projectBox.getItems().isEmpty()) projectBox.getSelectionModel().select(0);
@@ -524,12 +648,12 @@ public final class MainView extends BorderPane {
             Label heading = new Label("Detail entri"); heading.getStyleClass().add("section-heading");
             GridPane fields = new GridPane(); fields.setHgap(12); fields.setVgap(10);
             addField(fields, 0, "Jenis", kindBox); addField(fields, 1, "Nama", name); addField(fields, 2, "Kategori", category); addField(fields, 3, "Peran karakter", role);
-            details.setPrefRowCount(6); details.setWrapText(true); traits.setPrefRowCount(3); traits.setPromptText("Satu trait per baris, misalnya: keras kepala"); traits.setWrapText(true);
-            HBox traitHeader = new HBox(8); traitHeader.setAlignment(Pos.CENTER_LEFT);
-            Label traitTitle = new Label("Trait karakter"); traitTitle.getStyleClass().add("field-caption");
-            Region sp = new Region(); HBox.setHgrow(sp, Priority.ALWAYS);
-            Button addTrait = new Button("＋ Trait"); addTrait.getStyleClass().add("button-quiet"); addTrait.setOnAction(e -> addCustomTrait());
-            traitHeader.getChildren().addAll(traitTitle, sp, addTrait);
+            Label roleSuggestions = new Label("Saran: Protagonist (tokoh utama), Antagonist (penentang), Supporting Character (pendukung), Mentor (pembimbing), Rival (saingan), Love Interest, NPC, atau tulis peran sendiri.");
+            roleSuggestions.getStyleClass().add("muted-label");
+            roleSuggestions.setWrapText(true);
+            fields.add(roleSuggestions, 1, 4);
+            details.setPrefRowCount(8); details.setWrapText(true);
+            details.setPromptText("Tuliskan biodata, deskripsi karakter, backstory, atau detail entri di sini...");
             VBox media = new VBox(8); media.getStyleClass().add("panel-card");
             Label mediaTitle=new Label("GAMBAR & GALERI");mediaTitle.getStyleClass().add("nav-section-title");
             imagePreview.setFitWidth(260);imagePreview.setFitHeight(190);imagePreview.setPreserveRatio(true);
@@ -547,7 +671,7 @@ public final class MainView extends BorderPane {
             Button save = new Button("Simpan entri"); save.getStyleClass().add("button-primary"); save.setOnAction(e -> saveRecord());
             Button delete = new Button("Hapus"); delete.getStyleClass().add("button-danger"); delete.setOnAction(e -> deleteRecord());
             HBox actions = new HBox(8, save, delete);
-            form.getChildren().addAll(heading, fields, new Label("Deskripsi / detail"), details, traitHeader, traits, media, actions);
+            form.getChildren().addAll(heading, fields, new Label("Deskripsi / detail"), details, media, actions);
             ScrollPane formScroll = new ScrollPane(form); formScroll.setFitToWidth(true); formScroll.getStyleClass().add("page-scroll");
             SplitPane split = new SplitPane(left, formScroll); split.setDividerPositions(0.29);
             setCenter(split);
@@ -577,6 +701,23 @@ public final class MainView extends BorderPane {
                 default -> "Karakter";
             };
         }
+        private String storyRoleHint(String value) {
+            return switch (value) {
+                case "Protagonist" -> "Tokoh utama dalam cerita.";
+                case "Antagonist" -> "Tokoh penentang atau sumber konflik.";
+                case "Deuteragonist" -> "Tokoh utama kedua dengan peran penting.";
+                case "Supporting Character" -> "Tokoh pendukung perkembangan cerita.";
+                case "Mentor" -> "Pembimbing atau pemberi arahan.";
+                case "Rival" -> "Saingan yang mendorong konflik atau perkembangan.";
+                case "Love Interest" -> "Tokoh yang memiliki hubungan romantis dengan karakter lain.";
+                case "Friend" -> "Teman atau sekutu.";
+                case "Family" -> "Anggota keluarga atau kerabat.";
+                case "NPC" -> "Tokoh tambahan yang mengisi dunia cerita.";
+                case "Original Character" -> "Karakter original buatan kreator.";
+                default -> "Peran bebas yang bisa kamu tentukan sendiri.";
+            };
+        }
+
         private void addField(GridPane grid, int row, String label, Node field) {
             Label l = new Label(label); l.getStyleClass().add("field-caption");
             grid.add(l, 0, row); grid.add(field, 1, row); GridPane.setHgrow(field, Priority.ALWAYS);
@@ -588,23 +729,25 @@ public final class MainView extends BorderPane {
         private void newRecord() {
             selected = null;
             recordList.getSelectionModel().clearSelection();
-            name.clear(); category.clear(); role.clear(); details.clear(); traits.clear(); imageData="";imageWidth=1.0;imagePreview.setImage(null);galleryItems.clear();refreshGallery();
+            name.clear(); category.clear(); role.setValue(null); role.getEditor().clear(); details.clear(); imageData="";imageWidth=1.0;imagePreview.setImage(null);galleryItems.clear();refreshGallery();
         }
         private void loadRecord(StoryRecord r) {
             loadingRecord = true;
             try {
                 selected = r;
                 kindBox.setValue(kindFromStorage(r.kind()));
-                name.setText(r.name()); category.setText(r.category()); role.setText(r.role()); details.setText(r.details());
-                traits.setText(r.customTraits()); imageData=r.imageData();imageWidth=r.imageWidth();imagePreview.setImage(ImageCropDialog.fromBase64(imageData));imagePreview.setFitWidth(260*imageWidth);
+                name.setText(r.name()); category.setText(r.category()); role.setValue(r.role()); role.getEditor().setText(r.role()); details.setText(r.details());
+                imageData=r.imageData();imageWidth=r.imageWidth();imagePreview.setImage(ImageCropDialog.fromBase64(imageData));imagePreview.setFitWidth(260*imageWidth);
                 loadGallery(r.galleryData());
             } finally { loadingRecord = false; }
         }
         private void saveRecord() {
             if (projectBox.getValue() == null || name.getText().isBlank()) { info("Isi nama entri terlebih dahulu."); return; }
             try {
-                long id = repo.saveStoryRecord(new StoryRecord(selected == null ? 0 : selected.id(), projectBox.getValue().id(), kindToStorage(kindBox.getValue()), name.getText().trim(), category.getText(), details.getText(), role.getText(), "{}", traits.getText(), imageData, imageWidth, galleryJson()));
-                for (String trait : traits.getText().split("\\R")) if (!trait.isBlank()) repo.addTrait(projectBox.getValue().id(), trait);
+                String legacyTraits = selected == null ? "" : selected.customTraits();
+                String roleValue = role.getEditor().getText() == null ? "" : role.getEditor().getText().trim();
+                if (roleValue.isBlank() && role.getValue() != null) roleValue = role.getValue();
+                long id = repo.saveStoryRecord(new StoryRecord(selected == null ? 0 : selected.id(), projectBox.getValue().id(), kindToStorage(kindBox.getValue()), name.getText().trim(), category.getText(), details.getText(), roleValue, "{}", legacyTraits, imageData, imageWidth, galleryJson()));
                 refresh(); recordList.getItems().stream().filter(r -> r.id() == id).findFirst().ifPresent(recordList.getSelectionModel()::select);
                 info("Entri Story Bible tersimpan.");
             } catch (Exception ex) { error("Simpan entri", ex); }
@@ -624,20 +767,10 @@ public final class MainView extends BorderPane {
         private void resizeGalleryImage(){int i=selectedGalleryIndex();if(i<0)return;GalleryImage old=galleryItems.get(i);TextInputDialog d=new TextInputDialog(String.valueOf((int)(old.width*100)));d.setTitle("Lebar galeri");d.setHeaderText("Lebar relatif gambar (20–100%)");d.setContentText("Lebar (%):");d.showAndWait().ifPresent(v->{try{old.width=Math.max(20,Math.min(100,Integer.parseInt(v.trim())))/100.0;refreshGallery();galleryList.getSelectionModel().select(i);}catch(Exception ex){info("Masukkan angka 20–100.");}});}
         private void layoutGalleryImage(){int i=selectedGalleryIndex();if(i<0)return;ChoiceDialog<String>d=new ChoiceDialog<>(galleryItems.get(i).layout,"center","left","right");d.setTitle("Layout Gambar");d.setHeaderText("Posisi gambar di halaman baca");d.setContentText("Layout:");d.showAndWait().ifPresent(v->{galleryItems.get(i).layout=v;refreshGallery();galleryList.getSelectionModel().select(i);});}
 
-        private void addCustomTrait() {
-            TextInputDialog d = new TextInputDialog(); d.setTitle("Trait baru"); d.setHeaderText("Tambahkan trait yang bisa dipakai kembali"); d.setContentText("Nama trait:");
-            d.showAndWait().ifPresent(value -> {
-                if (value.isBlank()) return;
-                try { repo.addTrait(projectBox.getValue() == null ? 0 : projectBox.getValue().id(), value); traits.appendText(value.trim() + "\n"); }
-                catch (Exception ex) { error("Trait", ex); }
-            });
-        }
     }
 
     private void showCharacterStudio() {
-        if (activeCharacterStudio != null) activeCharacterStudio.savePendingProfile();
-        activeCharacterStudio = new CharacterStudioPane(repo, ollama, this::showBible, this::showSettings);
-        showPage(activeCharacterStudio, "characters", "Studio Karakter");
+        activateRoleplayMode();
     }
 
     private static final class GalleryImage { String data; double width; String layout; GalleryImage(String data,double width,String layout){this.data=data;this.width=width;this.layout=layout;} }

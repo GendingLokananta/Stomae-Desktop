@@ -9,6 +9,7 @@ Write-Host "Building Stomake $Version for Windows x64..." -ForegroundColor Cyan
 
 $RequiredSources = @(
     'src/main/java/id/stomake/App.java',
+    'src/main/java/id/stomake/ui/WindowChrome.java',
     'src/main/java/id/stomake/data/Database.java',
     'src/main/java/id/stomake/data/Repository.java',
     'src/main/java/id/stomake/ai/OllamaClient.java',
@@ -24,7 +25,7 @@ $RequiredSources = @(
 foreach ($Source in $RequiredSources) {
     $SourcePath = Join-Path $Root $Source
     if (-not (Test-Path $SourcePath)) {
-        throw "Required source file is missing: $Source. The GitHub repository does not contain this file. Replace the repository contents with the complete 2.1.3 source and commit the Java data package."
+        throw "Required source file is missing: $Source. The GitHub repository does not contain this file. Replace the repository contents with the complete 2.2.0 source and commit the Java data package."
     }
     # Catch broad .gitignore patterns such as 'data/' that silently omit
     # src/main/java/id/stomake/data/*.java from git add / GitHub uploads.

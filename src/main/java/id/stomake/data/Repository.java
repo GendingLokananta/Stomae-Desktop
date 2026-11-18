@@ -344,24 +344,24 @@ public final class Repository {
     public long importCharacterToStory(long characterId, long projectId) throws Exception {
         CharacterProfile x = character(characterId);
         if (x == null) throw new IllegalArgumentException("Karakter tidak ditemukan.");
-        String details = "Deskripsi: " + x.description() + "\n\nKepribadian: " + x.personality()
-                + "\n\nTrait: " + x.traits() + "\n\nLatar belakang: " + x.background()
-                + "\n\nPenampilan: " + x.appearance() + "\n\nGaya bicara: " + x.speakingStyle()
-                + "\n\nMotivasi: " + x.motivations() + "\n\nKekurangan: " + x.flaws()
-                + "\n\nRahasia: " + x.secrets() + "\n\nRelasi dengan tokoh utama: " + x.relationshipToUser();
+        // This is a one-way copy into the independent Story Maker character record.
+        // User-specific RP relationship, chat history and memory are deliberately not transferred.
+        String details = "Biodata:\n" + x.description()
+                + "\n\nDeskripsi karakter:\n" + x.personality()
+                + "\n\nBackstory karakter:\n" + x.background();
         try (Connection c = database.open(); PreparedStatement find = c.prepareStatement("SELECT id FROM story_records WHERE project_id=? AND kind IN ('character','characters') AND name=? LIMIT 1")) {
             find.setLong(1, projectId); find.setString(2, x.name());
             try (ResultSet r = find.executeQuery()) {
                 if (r.next()) {
                     long recordId = r.getLong(1);
                     try (PreparedStatement update = c.prepareStatement("UPDATE story_records SET details=?,role=?,category=?,custom_traits=? WHERE id=?")) {
-                        update.setString(1, details); update.setString(2, x.role()); update.setString(3, "Karakter"); update.setString(4, x.traits()); update.setLong(5, recordId); update.executeUpdate();
+                        update.setString(1, details); update.setString(2, x.role()); update.setString(3, "Karakter"); update.setString(4, ""); update.setLong(5, recordId); update.executeUpdate();
                     }
                     return recordId;
                 }
             }
         }
-        return saveStoryRecord(new StoryRecord(0, projectId, "character", x.name(), "Karakter", details, x.role(), "{}", x.traits()));
+        return saveStoryRecord(new StoryRecord(0, projectId, "character", x.name(), "Karakter", details, x.role(), "{}", ""));
     }
 
     public List<CustomCategory> customCategories() throws Exception {

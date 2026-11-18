@@ -229,3 +229,85 @@
 .app-root.slate-theme .writer-user-bubble { -fx-background-color: #465a76; }
 .app-root.slate-theme .writer-ai-bubble { -fx-background-color: #34414e; -fx-border-color: #4a5b6a; }
 .app-root.slate-theme .writer-message-text { -fx-text-fill: #eef3f7; }
+
+/* Stomake 2.2 shell: custom window chrome and a compact two-mode rail. */
+.window-chrome {
+    -fx-background-color: #12141d;
+    -fx-border-color: transparent transparent #282b38 transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-spacing: 7px;
+}
+.window-brand-mark {
+    -fx-background-color: linear-gradient(to bottom right, #a78bfa, #7662cf);
+    -fx-background-radius: 8px;
+    -fx-min-width: 25px;
+    -fx-min-height: 25px;
+    -fx-alignment: center;
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+.window-title { -fx-text-fill: #e8e5f1; -fx-font-size: 11px; -fx-font-weight: bold; }
+.window-control-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #c9c7d4;
+    -fx-font-size: 16px;
+    -fx-min-width: 38px;
+    -fx-min-height: 30px;
+    -fx-background-radius: 6px;
+    -fx-padding: 2 8;
+    -fx-cursor: hand;
+}
+.window-control-button:hover { -fx-background-color: #2b2e3b; -fx-text-fill: white; }
+.window-close-button:hover { -fx-background-color: #c43b50; -fx-text-fill: white; }
+.main-shell { -fx-background-color: #10121a; }
+.mode-rail {
+    -fx-background-color: #11131c;
+    -fx-border-color: transparent #282b38 transparent transparent;
+    -fx-border-width: 0 1 0 0;
+}
+.mode-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #a9aabd;
+    -fx-font-size: 12px;
+    -fx-padding: 11 10;
+    -fx-background-radius: 9px;
+    -fx-cursor: hand;
+}
+.mode-button:hover { -fx-background-color: #202331; -fx-text-fill: #f5f3ff; }
+.mode-selected { -fx-background-color: #302a49; -fx-text-fill: #d3c7ff; -fx-font-weight: bold; }
+.mode-collapse-button {
+    -fx-background-color: #1a1d29;
+    -fx-text-fill: #9c9fb1;
+    -fx-background-radius: 8px;
+    -fx-padding: 8 9;
+    -fx-cursor: hand;
+}
+.mode-collapse-button:hover { -fx-background-color: #292d3c; -fx-text-fill: white; }
+.mode-rail-note { -fx-text-fill: #626678; -fx-font-size: 8px; -fx-alignment: center; }
+.mode-host { -fx-background-color: #10121a; }
+.roleplay-setup-pane { -fx-background-color: transparent; -fx-border-color: #343848; -fx-border-radius: 8px; }
+.roleplay-setup-pane > .title { -fx-background-color: #222532; -fx-background-radius: 8px; -fx-padding: 10px; }
+.roleplay-setup-pane > .title > .text { -fx-fill: #e6e3ef; -fx-font-size: 11px; -fx-font-weight: bold; }
+.roleplay-setup-pane > .content { -fx-background-color: #181b26; -fx-padding: 4px; }
+
+.app-root.light-theme .window-chrome { -fx-background-color: #ffffff; -fx-border-color: transparent transparent #e0e2ea transparent; }
+.app-root.light-theme .window-title { -fx-text-fill: #252638; }
+.app-root.light-theme .window-control-button { -fx-text-fill: #505467; }
+.app-root.light-theme .window-control-button:hover { -fx-background-color: #edf0f8; -fx-text-fill: #242638; }
+.app-root.light-theme .mode-rail { -fx-background-color: #ffffff; -fx-border-color: transparent #e0e2ea transparent transparent; }
+.app-root.light-theme .mode-button { -fx-text-fill: #656a7c; }
+.app-root.light-theme .mode-button:hover { -fx-background-color: #edf0f8; -fx-text-fill: #26283a; }
+.app-root.light-theme .mode-selected { -fx-background-color: #e9e5ff; -fx-text-fill: #5d4ba5; }
+.app-root.warm-theme .window-chrome { -fx-background-color: #eee5d8; -fx-border-color: transparent transparent #d9cdbb transparent; }
+.app-root.warm-theme .window-title { -fx-text-fill: #3a3028; }
+.app-root.warm-theme .window-control-button { -fx-text-fill: #796b5d; }
+.app-root.warm-theme .mode-rail { -fx-background-color: #eee5d8; -fx-border-color: transparent #d9cdbb transparent transparent; }
+.app-root.warm-theme .mode-button { -fx-text-fill: #796b5d; }
+.app-root.warm-theme .mode-selected { -fx-background-color: #e8ddf7; -fx-text-fill: #65528e; }
+.app-root.slate-theme .window-chrome { -fx-background-color: #26313d; -fx-border-color: transparent transparent #3b4856 transparent; }
+.app-root.slate-theme .window-title { -fx-text-fill: #e5edf3; }
+.app-root.slate-theme .window-control-button { -fx-text-fill: #aab8c5; }
+.app-root.slate-theme .mode-rail { -fx-background-color: #26313d; -fx-border-color: transparent #3b4856 transparent transparent; }
+.app-root.slate-theme .mode-button { -fx-text-fill: #aab8c5; }
+.app-root.slate-theme .mode-selected { -fx-background-color: #465a76; -fx-text-fill: #eef3f7; }

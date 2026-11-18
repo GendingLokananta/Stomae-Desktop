@@ -19,12 +19,13 @@ import javafx.util.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /** C.AI-style local character workshop with persistent persona and chat history. */
 public final class CharacterStudioPane extends BorderPane {
     private final Repository repo;
     private final OllamaClient ollama;
-    private final Runnable openBible;
+    private final Consumer<Project> openBible;
     private final Runnable openSettings;
 
     private final ListView<CharacterProfile> characterList = new ListView<>();
@@ -41,7 +42,7 @@ public final class CharacterStudioPane extends BorderPane {
 
     // Persona fields
     private final TextField name = new TextField();
-    private final TextField role = new TextField();
+    private final ComboBox<String> role = new ComboBox<>();
     private final TextArea description = area("Gambaran singkat karakter dan identitasnya...");
     private final TextArea personality = area("Contoh: pendiam, mudah cemburu, perhatian diam-diam, suka menyindir...");
     private final TextArea traits = area("Satu trait per baris. Contoh: keras kepala\nprotektif\ncerdas");
@@ -57,12 +58,24 @@ public final class CharacterStudioPane extends BorderPane {
     private final TextArea secrets = area("Rahasia yang diketahui karakter, atau belum diketahui pengguna...");
     private final TextArea memoryNotes = area("Catatan kontinuitas jangka panjang: kejadian penting, janji, relasi, dan fakta yang jangan dilupakan...");
     private final Label saveStatus = new Label("Profil belum disimpan");
+    private Dialog<ButtonType> profileDialog;
 
-    public CharacterStudioPane(Repository repo, OllamaClient ollama, Runnable openBible, Runnable openSettings) {
+    public CharacterStudioPane(Repository repo, OllamaClient ollama, Consumer<Project> openBible, Runnable openSettings) {
         this.repo = repo;
         this.ollama = ollama;
         this.openBible = openBible;
         this.openSettings = openSettings;
+        role.setEditable(true);
+        role.setPromptText("Pilih atau tulis peran karakter...");
+        role.getItems().setAll("Protagonist", "Antagonist", "Deuteragonist", "Supporting Character",
+                "Mentor", "Rival", "Love Interest", "Friend", "Family", "NPC", "Original Character", "Custom");
+        role.setCellFactory(list -> new ListCell<>() {
+            @Override protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item);
+                setTooltip(empty || item == null ? null : new javafx.scene.control.Tooltip(roleHint(item)));
+            }
+        });
         getStyleClass().add("character-studio");
         setTop(buildHeader());
         setCenter(buildStudio());
@@ -77,14 +90,15 @@ public final class CharacterStudioPane extends BorderPane {
         header.getStyleClass().add("studio-header");
         header.setAlignment(Pos.CENTER_LEFT);
         VBox copy = new VBox(3);
-        Label eyebrow = new Label("CHARACTER WORKSHOP"); eyebrow.getStyleClass().add("eyebrow");
-        Label title = new Label("Studio Karakter"); title.getStyleClass().add("section-heading");
-        Label subtitle = new Label("Ciptakan persona, bangun hubungan, lalu roleplay bersama karakter buatanmu."); subtitle.getStyleClass().add("muted-label");
+        Label eyebrow = new Label("ROLEPLAY STUDIO"); eyebrow.getStyleClass().add("eyebrow");
+        Label title = new Label("Roleplay"); title.getStyleClass().add("section-heading");
+        Label subtitle = new Label("Buat karakter AI dan bangun percakapan dengan persona yang kamu tentukan."); subtitle.getStyleClass().add("muted-label");
         copy.getChildren().addAll(eyebrow, title, subtitle);
         Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
-        Button toBible = new Button("Masukkan ke Story Bible ↗"); toBible.getStyleClass().add("button-quiet"); toBible.setOnAction(e -> importToBible());
+        Button edit = new Button("Edit Profil"); edit.getStyleClass().add("button-quiet"); edit.setOnAction(e -> openProfileEditor());
+        Button toBible = new Button("Convert ke Story Maker ↗"); toBible.getStyleClass().add("button-quiet"); toBible.setOnAction(e -> importToBible());
         Button add = new Button("＋ Karakter baru"); add.getStyleClass().add("button-primary"); add.setOnAction(e -> newCharacter());
-        header.getChildren().addAll(copy, spacer, toBible, add);
+        header.getChildren().addAll(copy, spacer, edit, toBible, add);
         header.setPadding(new Insets(20, 24, 16, 24));
         return header;
     }
@@ -114,48 +128,86 @@ public final class CharacterStudioPane extends BorderPane {
         Button delete = new Button("Hapus karakter"); delete.getStyleClass().add("button-danger"); delete.setMaxWidth(Double.MAX_VALUE); delete.setOnAction(e -> deleteCharacter());
         library.getChildren().addAll(libraryTitle, characterList, delete);
 
-        VBox profile = buildProfileEditor(); profile.setPrefWidth(360); profile.setMinWidth(300);
-        VBox chat = buildChatPanel(); HBox.setHgrow(chat, Priority.ALWAYS); chat.setMinWidth(360);
-        SplitPane split = new SplitPane(library, profile, chat); split.setDividerPositions(0.19, 0.53); split.getStyleClass().add("studio-split");
+        VBox chat = buildChatPanel(); HBox.setHgrow(chat, Priority.ALWAYS); chat.setMinWidth(420);
+        SplitPane split = new SplitPane(library, chat); split.setDividerPositions(0.25); split.getStyleClass().add("studio-split");
         BorderPane wrapper = new BorderPane(split); wrapper.setPadding(new Insets(0, 20, 20, 20));
         return wrapper;
     }
 
     private VBox buildProfileEditor() {
-        VBox outer = new VBox(10); outer.getStyleClass().add("profile-editor");
-        HBox titleRow = new HBox(8); titleRow.setAlignment(Pos.CENTER_LEFT);
-        Label heading = new Label("Profil karakter"); heading.getStyleClass().add("panel-heading");
-        Region sp = new Region(); HBox.setHgrow(sp, Priority.ALWAYS);
-        Button save = new Button("Simpan"); save.getStyleClass().add("button-primary"); save.setOnAction(e -> saveProfile(true));
-        titleRow.getChildren().addAll(heading, sp, save);
-        TabPane tabs = new TabPane(); tabs.getStyleClass().add("profile-tabs"); VBox.setVgrow(tabs, Priority.ALWAYS);
+        VBox outer = new VBox(10);
+        outer.getStyleClass().add("profile-editor");
+        outer.setPrefWidth(430);
+        outer.setMinWidth(390);
+        HBox titleRow = new HBox(8);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
+        Label heading = new Label("Profil karakter");
+        heading.getStyleClass().add("panel-heading");
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        Button save = new Button("Simpan");
+        save.getStyleClass().add("button-primary");
+        save.setOnAction(e -> saveProfile(true));
+        titleRow.getChildren().addAll(heading, spacer, save);
 
-        VBox identity = new VBox(9); identity.setPadding(new Insets(14));
-        identity.getChildren().addAll(field("Nama karakter", name), field("Peran / tipe", role), field("Deskripsi singkat", description), field("Kepribadian", personality), traitSection(), field("Motivasi", motivations), field("Kekurangan & kelemahan", flaws));
-        ScrollPane identityScroll = wrap(identity);
-        VBox world = new VBox(9); world.setPadding(new Insets(14));
-        world.getChildren().addAll(field("Latar belakang", background), field("Penampilan", appearance), field("Gaya bicara", speakingStyle), field("Hubungan dengan pengguna", relationship), field("Rahasia", secrets));
-        ScrollPane worldScroll = wrap(world);
-        VBox scene = new VBox(9); scene.setPadding(new Insets(14));
-        scene.getChildren().addAll(field("Skenario awal", scenario), field("Pesan pembuka", greeting), field("Instruksi tambahan", extraInstructions), field("Memori / catatan kontinuitas", memoryNotes));
-        ScrollPane sceneScroll = wrap(scene);
-        tabs.getTabs().addAll(tab("Persona", identityScroll), tab("Dunia & relasi", worldScroll), tab("Roleplay & memori", sceneScroll));
+        VBox identity = new VBox(10);
+        identity.setPadding(new Insets(14));
+        identity.getChildren().addAll(
+                field("Nama karakter", name),
+                field("Role / tipe karakter", role),
+                roleHelp(),
+                field("Biodata", description),
+                field("Deskripsi karakter", personality),
+                field("Backstory karakter", background));
+
+        VBox setup = new VBox(10);
+        setup.setPadding(new Insets(14));
+        Label setupHint = new Label("Bagian ini hanya mengatur hubungan karakter dengan kreator dan kondisi roleplay. Tidak ikut menjadi data karakter Story Maker saat dikonversi.");
+        setupHint.getStyleClass().add("muted-label");
+        setupHint.setWrapText(true);
+        setup.getChildren().addAll(setupHint,
+                field("Hubungan karakter dengan kamu", relationship),
+                field("Skenario awal roleplay", scenario),
+                field("Greeting / pesan pembuka", greeting),
+                field("Instruksi tambahan (opsional)", extraInstructions),
+                field("Memori & kontinuitas percakapan", memoryNotes));
+        TitledPane setupPane = new TitledPane("Pengaturan Roleplay (opsional)", wrap(setup));
+        setupPane.setExpanded(false);
+        setupPane.setCollapsible(true);
+        setupPane.getStyleClass().add("roleplay-setup-pane");
+
         saveStatus.getStyleClass().add("muted-label");
-        Button addTrait = new Button("＋ Trait custom"); addTrait.getStyleClass().add("button-quiet"); addTrait.setOnAction(e -> addTrait());
-        HBox footer = new HBox(8, addTrait, saveStatus); footer.setAlignment(Pos.CENTER_LEFT);
-        outer.getChildren().addAll(titleRow, tabs, footer);
+        HBox footer = new HBox(8, saveStatus);
+        footer.setAlignment(Pos.CENTER_LEFT);
+        ScrollPane scroll = wrap(new VBox(12, identity, setupPane));
+        VBox.setVgrow(scroll, Priority.ALWAYS);
+        outer.getChildren().addAll(titleRow, scroll, footer);
         return outer;
     }
 
-    private Node traitSection() {
-        VBox box = new VBox(4);
-        HBox header = new HBox(8); header.setAlignment(Pos.CENTER_LEFT);
-        Label caption = new Label("Trait karakter (satu per baris)"); caption.getStyleClass().add("field-caption");
-        Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
-        Button add = new Button("＋"); add.getStyleClass().add("small-icon-button"); add.setOnAction(e -> addTrait());
-        header.getChildren().addAll(caption, spacer, add);
-        box.getChildren().addAll(header, traits);
-        return box;
+    private Node roleHelp() {
+        Label hint = new Label("Saran: Protagonist = tokoh utama · Antagonist = penentang · Supporting = pendukung · Mentor = pembimbing · Rival = saingan · NPC = karakter tambahan. Kamu juga bisa mengetik role sendiri.");
+        hint.getStyleClass().add("muted-label");
+        hint.setWrapText(true);
+        hint.setMaxWidth(390);
+        return hint;
+    }
+
+    private static String roleHint(String role) {
+        return switch (role) {
+            case "Protagonist" -> "Tokoh utama yang menjadi pusat cerita atau interaksi.";
+            case "Antagonist" -> "Tokoh yang menjadi lawan atau sumber konflik utama.";
+            case "Deuteragonist" -> "Tokoh utama kedua yang memiliki peran besar.";
+            case "Supporting Character" -> "Tokoh pendukung yang membantu perkembangan cerita.";
+            case "Mentor" -> "Pembimbing yang memberi arahan, ilmu, atau pengalaman.";
+            case "Rival" -> "Saingan yang mendorong konflik atau perkembangan karakter.";
+            case "Love Interest" -> "Tokoh yang menjadi pasangan atau potensi hubungan romantis.";
+            case "Friend" -> "Teman atau sekutu dekat.";
+            case "Family" -> "Anggota keluarga atau kerabat.";
+            case "NPC" -> "Tokoh tambahan yang mengisi dunia atau adegan.";
+            case "Original Character" -> "Karakter original buatan kreator.";
+            default -> "Peran bebas yang kamu tentukan sendiri.";
+        };
     }
 
     private VBox buildChatPanel() {
@@ -200,8 +252,8 @@ public final class CharacterStudioPane extends BorderPane {
     private static Tab tab(String title, Node content) { Tab t = new Tab(title, content); t.setClosable(false); return t; }
 
     private void attachProfileAutosave() {
-        List<TextInputControl> controls = List.of(name, role, description, personality, traits, motivations, flaws,
-                background, appearance, speakingStyle, relationship, scenario, greeting, extraInstructions, secrets, memoryNotes);
+        List<TextInputControl> controls = List.of(name, description, personality, background,
+                relationship, scenario, greeting, extraInstructions, memoryNotes);
         for (TextInputControl control : controls) {
             control.textProperty().addListener((obs, oldValue, newValue) -> {
                 if (!loadingProfile) {
@@ -210,6 +262,18 @@ public final class CharacterStudioPane extends BorderPane {
                 }
             });
         }
+        role.getEditor().textProperty().addListener((obs, oldValue, newValue) -> {
+            if (!loadingProfile) {
+                saveStatus.setText("Perubahan belum disimpan…");
+                profileSaveDelay.playFromStart();
+            }
+        });
+        role.valueProperty().addListener((obs, oldValue, newValue) -> {
+            if (!loadingProfile && newValue != null) {
+                saveStatus.setText("Perubahan belum disimpan…");
+                profileSaveDelay.playFromStart();
+            }
+        });
         modelBox.valueProperty().addListener((obs, oldValue, newValue) -> {
             if (!loadingProfile && selected != null && newValue != null && !newValue.isBlank()) {
                 saveStatus.setText("Model berubah · menyimpan…");
@@ -244,16 +308,39 @@ public final class CharacterStudioPane extends BorderPane {
         saveProfile(false);
         clearProfile();
         name.setText("Karakter baru");
-        role.setText("Karakter original");
+        role.setValue("Original Character");
+        role.getEditor().setText("Original Character");
         saveProfile(false);
-        name.requestFocus();
+        openProfileEditor();
+    }
+
+    private void openProfileEditor() {
+        if (selected == null) {
+            status("Buat atau pilih karakter terlebih dahulu.");
+            return;
+        }
+        // Reuse one dialog because the editor controls are persistent fields.
+        // Re-parenting those controls into a new Dialog on every open is invalid in JavaFX.
+        if (profileDialog == null) {
+            profileDialog = new Dialog<>();
+            profileDialog.setTitle("Edit Profil Karakter");
+            profileDialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+            profileDialog.getDialogPane().setContent(buildProfileEditor());
+            profileDialog.getDialogPane().setPrefSize(470, 700);
+            if (getScene() != null && getScene().getWindow() != null) {
+                profileDialog.initOwner(getScene().getWindow());
+            }
+            profileDialog.setOnHidden(e -> saveProfile(false));
+        }
+        profileDialog.setTitle("Edit Profil Karakter — " + selected.name());
+        if (!profileDialog.isShowing()) profileDialog.showAndWait();
     }
 
     private void clearProfile() {
         profileSaveDelay.stop();
         loadingProfile = true;
         selected = null;
-        name.clear(); role.clear(); description.clear(); personality.clear(); traits.clear(); motivations.clear(); flaws.clear();
+        name.clear(); role.setValue(null); role.getEditor().clear(); description.clear(); personality.clear(); traits.clear(); motivations.clear(); flaws.clear();
         background.clear(); appearance.clear(); speakingStyle.clear(); relationship.clear(); scenario.clear(); greeting.clear(); extraInstructions.clear(); secrets.clear(); memoryNotes.clear();
         chatTitle.setText("Pilih karakter untuk mulai chat");
         chatMessages.getChildren().clear();
@@ -265,7 +352,7 @@ public final class CharacterStudioPane extends BorderPane {
         profileSaveDelay.stop();
         loadingProfile = true;
         selected = x;
-        name.setText(x.name()); role.setText(x.role()); description.setText(x.description()); personality.setText(x.personality()); traits.setText(x.traits());
+        name.setText(x.name()); role.setValue(x.role()); role.getEditor().setText(x.role()); description.setText(x.description()); personality.setText(x.personality()); traits.setText(x.traits());
         motivations.setText(x.motivations()); flaws.setText(x.flaws()); background.setText(x.background()); appearance.setText(x.appearance());
         speakingStyle.setText(x.speakingStyle()); relationship.setText(x.relationshipToUser()); scenario.setText(x.scenario()); greeting.setText(x.greeting());
         extraInstructions.setText(x.extraInstructions()); secrets.setText(x.secrets()); memoryNotes.setText(x.memoryNotes());
@@ -285,9 +372,15 @@ public final class CharacterStudioPane extends BorderPane {
             long id = selected == null ? 0 : selected.id();
             double temperature = 0.95;
             if (selected != null) temperature = selected.temperature();
-            CharacterProfile value = new CharacterProfile(id, name.getText().trim(), value(role), value(description), value(personality), value(traits),
-                    value(background), value(appearance), value(speakingStyle), value(scenario), value(greeting), value(extraInstructions),
-                    value(relationship), value(motivations), value(flaws), value(secrets), value(memoryNotes),
+            String selectedRole = role.getEditor().getText() == null ? "" : role.getEditor().getText().trim();
+            if (selectedRole.isBlank() && role.getValue() != null) selectedRole = role.getValue();
+            // Keep legacy columns intact for existing profiles, although the simplified 2.2 UI no longer exposes them.
+            CharacterProfile value = new CharacterProfile(id, name.getText().trim(), selectedRole,
+                    value(description), value(personality), selected == null ? "" : selected.traits(),
+                    value(background), selected == null ? "" : selected.appearance(), selected == null ? "" : selected.speakingStyle(),
+                    value(scenario), value(greeting), value(extraInstructions), value(relationship),
+                    selected == null ? "" : selected.motivations(), selected == null ? "" : selected.flaws(),
+                    selected == null ? "" : selected.secrets(), value(memoryNotes),
                     (modelBox.getValue() == null ? "" : modelBox.getValue()), temperature);
             long savedId = repo.saveCharacter(value);
             selected = repo.character(savedId);
@@ -324,16 +417,6 @@ public final class CharacterStudioPane extends BorderPane {
         }
     }
 
-    private void addTrait() {
-        TextInputDialog dialog = new TextInputDialog(); dialog.setTitle("Trait custom"); dialog.setHeaderText("Tambah sifat yang bisa dipakai lagi"); dialog.setContentText("Trait:");
-        dialog.showAndWait().ifPresent(t -> {
-            if (t.isBlank()) return;
-            if (!traits.getText().isBlank()) traits.appendText("\n");
-            traits.appendText(t.trim());
-            try { repo.addTrait(0, t.trim()); } catch (Exception ex) { status("Trait belum tersimpan: " + ex.getMessage()); }
-        });
-    }
-
     private void importToBible() {
         saveProfile(false);
         if (selected == null) { status("Simpan karakter terlebih dahulu."); return; }
@@ -341,11 +424,13 @@ public final class CharacterStudioPane extends BorderPane {
             List<Project> projects = repo.projects();
             if (projects.isEmpty()) { status("Buat proyek cerita terlebih dahulu."); return; }
             ChoiceDialog<Project> dialog = new ChoiceDialog<>(projects.get(0), projects);
-            dialog.setTitle("Masukkan ke Story Bible"); dialog.setHeaderText("Pilih cerita tujuan"); dialog.setContentText("Proyek:");
+            dialog.setTitle("Convert ke Story Maker"); dialog.setHeaderText("Salin profil karakter ke proyek cerita sebagai karakter baru yang independen."); dialog.setContentText("Pilih proyek:");
             Optional<Project> chosen = dialog.showAndWait();
             chosen.ifPresent(p -> {
-                try { repo.importCharacterToStory(selected.id(), p.id()); status("Karakter berhasil dimasukkan ke Story Bible " + p.title() + "."); }
-                catch (Exception ex) { status("Gagal mengimpor karakter: " + ex.getMessage()); }
+                try {
+                    repo.importCharacterToStory(selected.id(), p.id());
+                    openBible.accept(p);
+                } catch (Exception ex) { status("Gagal mengonversi karakter: " + ex.getMessage()); }
             });
         } catch (Exception ex) { status("Tidak bisa memuat daftar cerita: " + ex.getMessage()); }
     }
@@ -476,22 +561,16 @@ public final class CharacterStudioPane extends BorderPane {
         StringBuilder b = new StringBuilder();
         b.append("Kamu sedang melakukan roleplay sebagai karakter fiksi bernama ").append(p.name()).append(".\n");
         b.append("JANGAN bertindak sebagai asisten AI. Kamu adalah karakter tersebut di dalam adegan.\n\n");
-        section(b, "IDENTITAS / PERAN", p.role());
-        section(b, "DESKRIPSI", p.description());
-        section(b, "KEPRIBADIAN", p.personality());
-        section(b, "TRAIT SPESIFIK", p.traits());
-        section(b, "LATAR BELAKANG", p.background());
-        section(b, "PENAMPILAN", p.appearance());
-        section(b, "GAYA BICARA", p.speakingStyle());
-        section(b, "MOTIVASI DAN TUJUAN", p.motivations());
-        section(b, "KEKURANGAN / KETAKUTAN", p.flaws());
-        section(b, "RAHASIA", p.secrets());
-        section(b, "HUBUNGAN DENGAN PENGGUNA", p.relationshipToUser());
+        section(b, "ROLE / TIPE KARAKTER", p.role());
+        section(b, "BIODATA", p.description());
+        section(b, "DESKRIPSI KARAKTER", p.personality());
+        section(b, "BACKSTORY KARAKTER", p.background());
+        section(b, "HUBUNGAN KARAKTER DENGAN KREATOR (KHUSUS ROLEPLAY)", p.relationshipToUser());
         section(b, "SKENARIO SAAT INI", p.scenario());
         section(b, "MEMORI DAN KONTINUITAS SEBELUMNYA", p.memoryNotes());
         section(b, "INSTRUKSI TAMBAHAN", p.extraInstructions());
         b.append("\nATURAN ROLEPLAY WAJIB:\n")
-         .append("1. Perlakukan kepribadian dan trait sebagai pola dasar yang stabil. Tunjukkan sifat lewat pilihan, reaksi, gestur, dialog, dan cara berpikir; jangan sekadar menyebut daftar trait.\n")
+         .append("1. Perlakukan deskripsi karakter sebagai pola dasar kepribadian yang stabil. Tunjukkan sifat lewat pilihan, reaksi, gestur, dialog, dan cara berpikir; jangan sekadar menyebut daftar trait.\n")
          .append("2. Pertahankan nilai, motivasi, kebiasaan, cara bicara, pengetahuan, ketakutan, kelemahan, dan kontradiksi karakter sesuai profil. Jangan mengubah sifat hanya demi menyenangkan pengguna.\n")
          .append("3. Tulis seperti roleplay naratif: gabungkan aksi, ekspresi, suasana, gestur, dan dialog secara alami. Hindari jawaban pendek seperti customer service kecuali memang sesuai karakter.\n")
          .append("4. Jangan menulis dialog, tindakan, pikiran, perasaan, atau keputusan untuk karakter milik pengguna. Beri ruang bagi pengguna menentukan responsnya sendiri.\n")

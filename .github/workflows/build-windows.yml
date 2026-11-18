@@ -1,4 +1,4 @@
-name: Build Stomake Windows
+name: Build Stomake 2.2 Windows
 
 on:
   push:
@@ -37,12 +37,13 @@ jobs:
         run: |
           $required = @(
             'src/main/java/id/stomake/data/Database.java',
-            'src/main/java/id/stomake/data/Repository.java'
+            'src/main/java/id/stomake/data/Repository.java',
+            'src/main/java/id/stomake/ui/WindowChrome.java'
           )
           foreach ($file in $required) {
             git ls-files --error-unmatch $file | Out-Null
             if ($LASTEXITCODE -ne 0) {
-              throw "Required Java source is not committed: $file. Check .gitignore; use /data/ instead of data/."
+              throw "Required Java source is not committed: $file. Check .gitignore and commit the complete source tree."
             }
           }
 
@@ -69,9 +70,9 @@ jobs:
           }
 
       - name: Upload Windows application
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
-          name: Stomake-Windows-x64
+          name: Stomake-2.2-Windows-x64
           path: |
             dist/Stomake-*-Windows-x64.zip
             dist/SHA256SUMS.txt
