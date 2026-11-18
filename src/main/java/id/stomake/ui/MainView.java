@@ -12,6 +12,8 @@ import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Orientation;
+import javafx.geometry.VPos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -34,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 public final class MainView extends BorderPane {
     private final Stage stage;
@@ -248,7 +251,7 @@ public final class MainView extends BorderPane {
         Region spacer = new Region(); VBox.setVgrow(spacer, Priority.ALWAYS);
         VBox footer = new VBox(10);
         Label localText = new Label("DATA TERSIMPAN LOKAL"); localText.getStyleClass().add("local-note");
-        Label version = new Label("STOMAKE 2.2.1  ·  JAVA"); version.getStyleClass().add("version-label");
+        Label version = new Label("STOMAKE 2.2.2  ·  JAVA"); version.getStyleClass().add("version-label");
         footer.getChildren().addAll(localText, version);
         side.getChildren().addAll(logoRow, new Separator(), nav, spacer, footer);
         return side;
@@ -440,6 +443,15 @@ public final class MainView extends BorderPane {
         private final WebEngine engine = webView.getEngine();
         private final Label status = new Label("Tersimpan");
         private final PauseTransition saveDelay = new PauseTransition(Duration.millis(1100));
+        private ToggleButton boldButton;
+        private ToggleButton italicButton;
+        private ToggleButton underlineButton;
+        private ToggleButton strikeButton;
+        private ComboBox<String> fontPicker;
+        private Spinner<Integer> sizePicker;
+        private ComboBox<String> headingPicker;
+        private ComboBox<String> alignmentPicker;
+        private boolean updatingControls;
         private Chapter current;
         private boolean loading;
 
@@ -469,6 +481,7 @@ public final class MainView extends BorderPane {
 
         private Node buildChapterRail() {
             VBox rail = new VBox(12); rail.getStyleClass().add("chapter-rail"); rail.setPrefWidth(230);
+            rail.setMinWidth(190);
             HBox head = new HBox(8); head.setAlignment(Pos.CENTER_LEFT);
             Label label = new Label("DAFTAR BAB"); label.getStyleClass().add("nav-section-title");
             Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -478,7 +491,7 @@ public final class MainView extends BorderPane {
             chapterList.setCellFactory(v -> new ListCell<>() {
                 @Override protected void updateItem(Chapter item, boolean empty) {
                     super.updateItem(item, empty); setText(empty || item == null ? null : item.title());
-                    if (!empty) getStyleClass().add("chapter-cell");
+                    if (!empty && !getStyleClass().contains("chapter-cell")) getStyleClass().add("chapter-cell");
                 }
             });
             chapterList.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) -> {
@@ -493,7 +506,7 @@ public final class MainView extends BorderPane {
         }
 
         private Node buildWritingArea() {
-            VBox area = new VBox(12); area.getStyleClass().add("writing-area");
+            VBox area = new VBox(10); area.getStyleClass().add("writing-area");
             HBox titleRow = new HBox(12); titleRow.setAlignment(Pos.CENTER_LEFT);
             VBox titleBox = new VBox(4, new Label("JUDUL BAB"), titleField);
             ((Label) titleBox.getChildren().get(0)).getStyleClass().add("field-caption");
@@ -504,68 +517,250 @@ public final class MainView extends BorderPane {
             chapterToggle.setOnAction(e -> toggleChapterRail());
             Button save = new Button("Simpan"); save.getStyleClass().add("button-primary"); save.setOnAction(e -> saveCurrent());
             titleRow.getChildren().addAll(chapterToggle, titleBox, save);
-            HBox tools = new HBox(7); tools.getStyleClass().add("editor-toolbar"); tools.setAlignment(Pos.CENTER_LEFT);
-            Button bold = tool("B", () -> command("bold")); bold.setStyle("-fx-font-weight:bold;");
-            Button italic = tool("I", () -> command("italic")); italic.setStyle("-fx-font-style:italic;");
-            Button underline = tool("U", () -> command("underline"));
-            Button strike = tool("S̶", () -> command("strikeThrough"));
-            ComboBox<String> font = new ComboBox<>(); font.getItems().addAll("Garamond", "Times New Roman", "Courier New", "Arial", "Georgia"); font.setValue("Garamond"); font.setPrefWidth(155);
-            font.setOnAction(e -> setFont(font.getValue()));
-            Spinner<Integer> size = new Spinner<>(6, 200, 12); size.setEditable(true); size.setPrefWidth(82);
-            size.setTooltip(new Tooltip("Ukuran font dalam pt"));
-            size.valueProperty().addListener((obs, old, value) -> setFontSize(value));
-            ComboBox<String> heading = new ComboBox<>(); heading.getItems().addAll("Paragraf", "Heading 1", "Heading 2", "Heading 3"); heading.setValue("Paragraf"); heading.setPrefWidth(140);
-            heading.setOnAction(e -> command("formatBlock", switch (heading.getValue()) { case "Heading 1" -> "h1"; case "Heading 2" -> "h2"; case "Heading 3" -> "h3"; default -> "p"; }));
-            Button left = tool("☰", () -> command("justifyLeft"));
-            Button center = tool("≡", () -> command("justifyCenter"));
-            Button right = tool("☷", () -> command("justifyRight"));
-            Button list = tool("• List", () -> command("insertUnorderedList"));
-            Button ai = new Button("✧ AI Penulis"); ai.getStyleClass().add("button-quiet"); ai.setOnAction(e -> showAiWriter());
-            Button insertImage = new Button("＋ Gambar"); insertImage.getStyleClass().add("button-quiet"); insertImage.setOnAction(e -> insertChapterImage());
+
+            // The toolbar wraps into multiple rows on narrow editor widths instead of clipping controls.
+            FlowPane formatTools = new FlowPane(7, 7);
+            formatTools.getStyleClass().add("editor-toolbar");
+            formatTools.setAlignment(Pos.CENTER_LEFT);
+            formatTools.setRowValignment(VPos.CENTER);
+            formatTools.setPrefWrapLength(1080);
+            formatTools.setMaxWidth(Double.MAX_VALUE);
+
+            boldButton = formatToggle("B", "Tebal", "bold"); boldButton.setStyle("-fx-font-weight:bold;");
+            italicButton = formatToggle("I", "Miring", "italic"); italicButton.setStyle("-fx-font-style:italic;");
+            underlineButton = formatToggle("U", "Garis bawah", "underline");
+            strikeButton = formatToggle("S̶", "Coret", "strikeThrough");
+
+            fontPicker = new ComboBox<>();
+            fontPicker.getItems().addAll("Garamond", "Times New Roman", "Courier New", "Arial", "Georgia");
+            fontPicker.setValue("Garamond"); fontPicker.setPrefWidth(150); fontPicker.setMinWidth(135);
+            fontPicker.setTooltip(new Tooltip("Jenis huruf"));
+            fontPicker.setOnAction(e -> { if (!updatingControls && fontPicker.getValue() != null) setFont(fontPicker.getValue()); });
+
+            sizePicker = new Spinner<>(6, 200, 12);
+            sizePicker.setEditable(true); sizePicker.setPrefWidth(82); sizePicker.setMinWidth(78);
+            sizePicker.getStyleClass().add("font-size-control");
+            sizePicker.setTooltip(new Tooltip("Ukuran font (pt). Indikator ini tetap berukuran tetap."));
+            sizePicker.valueProperty().addListener((obs, oldValue, newValue) -> {
+                if (!updatingControls && newValue != null) setFontSize(newValue);
+            });
+            sizePicker.getEditor().setOnAction(e -> commitFontSize());
+            sizePicker.getEditor().focusedProperty().addListener((obs, wasFocused, focused) -> {
+                if (!focused) commitFontSize();
+            });
+
+            headingPicker = new ComboBox<>();
+            headingPicker.getItems().addAll("Paragraf", "Heading 1", "Heading 2", "Heading 3");
+            headingPicker.setValue("Paragraf"); headingPicker.setPrefWidth(132); headingPicker.setMinWidth(120);
+            headingPicker.setTooltip(new Tooltip("Gaya paragraf"));
+            headingPicker.setOnAction(e -> {
+                if (!updatingControls && headingPicker.getValue() != null) {
+                    command("formatBlock", switch (headingPicker.getValue()) {
+                        case "Heading 1" -> "h1"; case "Heading 2" -> "h2"; case "Heading 3" -> "h3"; default -> "p";
+                    });
+                }
+            });
+
+            alignmentPicker = new ComboBox<>();
+            alignmentPicker.getItems().addAll("Kiri", "Tengah", "Kanan");
+            alignmentPicker.setValue("Kiri"); alignmentPicker.setPrefWidth(115); alignmentPicker.setMinWidth(105);
+            alignmentPicker.setTooltip(new Tooltip("Perataan paragraf"));
+            alignmentPicker.setOnAction(e -> {
+                if (!updatingControls && alignmentPicker.getValue() != null) {
+                    command(switch (alignmentPicker.getValue()) {
+                        case "Tengah" -> "justifyCenter"; case "Kanan" -> "justifyRight"; default -> "justifyLeft";
+                    });
+                }
+            });
+
+            formatTools.getChildren().addAll(boldButton, italicButton, underlineButton, strikeButton,
+                    separatorNode(), fontPicker, sizePicker, headingPicker, alignmentPicker);
+
+            FlowPane actionTools = new FlowPane(7, 7);
+            actionTools.getStyleClass().add("editor-action-toolbar");
+            actionTools.setAlignment(Pos.CENTER_LEFT);
+            actionTools.setRowValignment(VPos.CENTER);
+            actionTools.setPrefWrapLength(1080);
+            actionTools.setMaxWidth(Double.MAX_VALUE);
+            Button list = tool("•  List", () -> command("insertUnorderedList"));
+            Button insertImage = new Button("＋  Gambar"); insertImage.getStyleClass().add("button-quiet"); insertImage.setOnAction(e -> insertChapterImage());
+            Button ai = new Button("✧  AI Penulis"); ai.getStyleClass().add("button-quiet"); ai.setOnAction(e -> showAiWriter());
             MenuButton more = new MenuButton("Lainnya ▾"); more.getStyleClass().add("button-quiet");
-            MenuItem reader = new MenuItem("Mode baca / fullscreen"); reader.setOnAction(e -> openReader(project));
+            MenuItem reader = new MenuItem("Mode baca"); reader.setOnAction(e -> openReader(project));
             MenuItem history = new MenuItem("Riwayat versi bab"); history.setOnAction(e -> showVersionHistory(project.id()));
             MenuItem resizeImage = new MenuItem("Atur lebar gambar terpilih"); resizeImage.setOnAction(e -> resizeSelectedImage());
             MenuItem removeImage = new MenuItem("Hapus gambar terpilih"); removeImage.setOnAction(e -> removeSelectedImage());
             MenuItem exportStory = new MenuItem("Export cerita .stomake"); exportStory.setOnAction(e -> exportStomake(project));
             MenuItem exportDoc = new MenuItem("Export Word .docx"); exportDoc.setOnAction(e -> exportWord(project));
-            more.getItems().addAll(reader,history,new SeparatorMenuItem(),resizeImage,removeImage,new SeparatorMenuItem(),exportStory,exportDoc);
-            tools.getChildren().addAll(bold, italic, underline, strike, new Separator(), font, size, heading, new Separator(), left, center, right, list, insertImage, ai, more);
-            webView.getStyleClass().add("writing-webview"); VBox.setVgrow(webView, Priority.ALWAYS);
+            more.getItems().addAll(reader, history, new SeparatorMenuItem(), resizeImage, removeImage,
+                    new SeparatorMenuItem(), exportStory, exportDoc);
+            actionTools.getChildren().addAll(list, insertImage, ai, more);
+
+            webView.getStyleClass().add("writing-webview");
+            VBox.setVgrow(webView, Priority.ALWAYS);
             engine.getLoadWorker().stateProperty().addListener((obs, old, state) -> {
                 if (state == javafx.concurrent.Worker.State.SUCCEEDED) {
                     loading = true;
                     try {
                         JSObject window = (JSObject) engine.executeScript("window");
-                        window.setMember("stomakeBridge", new EditorBridge(() -> Platform.runLater(() -> { if (!loading) saveDelay.playFromStart(); })));
-                        engine.executeScript("document.body.contentEditable='true'; document.body.spellcheck=true; document.addEventListener('input',function(){stomakeBridge.inputChanged();});");
+                        window.setMember("stomakeBridge", new EditorBridge(
+                                () -> Platform.runLater(() -> { if (!loading) saveDelay.playFromStart(); }),
+                                format -> Platform.runLater(() -> syncFormattingControls(format))));
+                        engine.executeScript(editorBootstrapScript());
+                        applyEditorTheme(currentTheme());
+                        updateFormattingFromSelection();
                     } catch (Exception ignored) { }
                     loading = false;
                 }
             });
             HBox footer = new HBox(8, status); footer.setAlignment(Pos.CENTER_RIGHT); status.getStyleClass().add("muted-label");
-            area.getChildren().addAll(titleRow, tools, webView, footer);
+            area.getChildren().addAll(titleRow, formatTools, actionTools, webView, footer);
             return area;
         }
 
+        private Node separatorNode() {
+            Separator separator = new Separator();
+            separator.setOrientation(Orientation.VERTICAL);
+            separator.setPrefHeight(28);
+            return separator;
+        }
+
+        private ToggleButton formatToggle(String text, String tooltip, String command) {
+            ToggleButton button = new ToggleButton(text);
+            button.getStyleClass().add("format-toggle");
+            button.setTooltip(new Tooltip(tooltip));
+            button.setOnAction(e -> {
+                if (!updatingControls) command(command);
+            });
+            return button;
+        }
+
         private Button tool(String text, Runnable action) {
-            Button button = new Button(text); button.getStyleClass().add("format-button"); button.setOnAction(e -> action.run()); return button;
+            Button button = new Button(text);
+            button.getStyleClass().add("format-button");
+            button.setOnAction(e -> action.run());
+            return button;
         }
 
         private void command(String name) { command(name, null); }
         private void command(String name, String value) {
-            if (value == null) engine.executeScript("document.execCommand('" + name + "',false,null)");
-            else engine.executeScript("document.execCommand('" + name + "',false,'" + value + "')");
-            webView.requestFocus(); saveDelay.playFromStart();
+            String script = "window.stomakeCommand(" + jsQuote(name) + "," + (value == null ? "null" : jsQuote(value)) + ")";
+            engine.executeScript(script);
+            webView.requestFocus();
+            saveDelay.playFromStart();
+            updateFormattingFromSelection();
         }
+
         private void setFont(String family) {
-            String safe = family.replace("'", "");
-            engine.executeScript("document.execCommand('styleWithCSS',false,true); document.execCommand('fontName',false,'" + safe + "')");
-            webView.requestFocus(); saveDelay.playFromStart();
+            engine.executeScript("window.stomakeSetFont(" + jsQuote(family) + ")");
+            webView.requestFocus();
+            saveDelay.playFromStart();
+            updateFormattingFromSelection();
         }
+
         private void setFontSize(int pt) {
-            engine.executeScript("(function(pt){var s=window.getSelection();if(!s||!s.rangeCount)return;var r=s.getRangeAt(0);if(r.collapsed){document.execCommand('styleWithCSS',false,true);document.execCommand('fontSize',false,'7');var fs=document.getElementsByTagName('font');for(var i=0;i<fs.length;i++){if(fs[i].getAttribute('size')==='7'){fs[i].removeAttribute('size');fs[i].style.fontSize=pt+'pt';}}}else{var span=document.createElement('span');span.style.fontSize=pt+'pt';try{span.appendChild(r.extractContents());r.insertNode(span);}catch(e){}}})(" + pt + ")");
-            webView.requestFocus(); saveDelay.playFromStart();
+            int clamped = Math.max(6, Math.min(200, pt));
+            engine.executeScript("window.stomakeSetFontSize(" + clamped + ")");
+            webView.requestFocus();
+            saveDelay.playFromStart();
+            updateFormattingFromSelection();
+        }
+
+        private void commitFontSize() {
+            if (updatingControls || sizePicker == null) return;
+            try {
+                int value = Integer.parseInt(sizePicker.getEditor().getText().trim());
+                int clamped = Math.max(6, Math.min(200, value));
+                int previous = sizePicker.getValue();
+                updatingControls = true;
+                sizePicker.getValueFactory().setValue(clamped);
+                sizePicker.getEditor().setText(Integer.toString(clamped));
+                updatingControls = false;
+                if (clamped != previous) setFontSize(clamped);
+            } catch (NumberFormatException ignored) {
+                updatingControls = true;
+                sizePicker.getEditor().setText(Integer.toString(sizePicker.getValue()));
+                updatingControls = false;
+            }
+        }
+
+        private void syncFormattingControls(EditorFormatState format) {
+            if (format == null || sizePicker == null) return;
+            updatingControls = true;
+            try {
+                int pt = Math.max(6, Math.min(200, format.fontSize()));
+                sizePicker.getValueFactory().setValue(pt);
+                sizePicker.getEditor().setText(Integer.toString(pt));
+                if (fontPicker.getItems().contains(format.fontFamily())) fontPicker.setValue(format.fontFamily());
+                boldButton.setSelected(format.bold());
+                italicButton.setSelected(format.italic());
+                underlineButton.setSelected(format.underline());
+                strikeButton.setSelected(format.strike());
+                headingPicker.setValue(switch (format.blockTag().toLowerCase()) {
+                    case "h1" -> "Heading 1"; case "h2" -> "Heading 2"; case "h3" -> "Heading 3"; default -> "Paragraf";
+                });
+                alignmentPicker.setValue(switch (format.alignment().toLowerCase()) {
+                    case "center" -> "Tengah"; case "right", "end" -> "Kanan"; default -> "Kiri";
+                });
+            } finally { updatingControls = false; }
+        }
+
+        private void updateFormattingFromSelection() {
+            try { engine.executeScript("window.stomakeUpdateFormat && window.stomakeUpdateFormat()"); }
+            catch (Exception ignored) { }
+        }
+
+        private String currentTheme() {
+            try { return repo.setting("theme", "Dark"); }
+            catch (Exception ignored) { return "Dark"; }
+        }
+
+        private String editorThemeCss() {
+            return editorThemeCss(currentTheme());
+        }
+
+        private String editorThemeCss(String theme) {
+            return switch (theme == null ? "Dark" : theme) {
+                case "Light" -> "html,body{background:#f6f7fb;color:#26283a;} body{border-color:#e0e3ec;} p,h1,h2,h3,li{color:#26283a;}";
+                case "Warm Light" -> "html,body{background:#f4eee4;color:#342d26;} body{border-color:#ded3c3;} p,h1,h2,h3,li{color:#342d26;}";
+                case "Slate" -> "html,body{background:#26313d;color:#e7edf2;} body{border-color:#3b4856;} p,h1,h2,h3,li{color:#e7edf2;}";
+                default -> "html,body{background:#181a24;color:#e9e7ef;} body{border-color:#303444;} p,h1,h2,h3,li{color:#e9e7ef;}";
+            };
+        }
+
+        private void applyEditorTheme(String theme) {
+            try {
+                String css = editorThemeCss(theme).replace("\\", "\\\\").replace("'", "\\'");
+                engine.executeScript("(function(){var s=document.getElementById('stomake-editor-theme');if(!s){s=document.createElement('style');s.id='stomake-editor-theme';document.head.appendChild(s);}s.textContent='" + css + "';})()");
+            } catch (Exception ignored) { }
+        }
+
+        private String editorBootstrapScript() {
+            return "(function(){" +
+                    "window.__stomakeLastRange=null;" +
+                    "function remember(){var s=window.getSelection();if(!s||!s.rangeCount)return;var r=s.getRangeAt(0);if(document.body.contains(r.commonAncestorContainer))window.__stomakeLastRange=r.cloneRange();}" +
+                    "function restore(){var s=window.getSelection();if(window.__stomakeLastRange){s.removeAllRanges();s.addRange(window.__stomakeLastRange);}}" +
+                    "function active(){var s=window.getSelection();var n=s&&s.anchorNode;var e=n?(n.nodeType===3?n.parentElement:n):document.body;if(!e||!document.body.contains(e))e=document.body;return e;}" +
+                    "function block(e){while(e&&e!==document.body&&!/^(P|DIV|H1|H2|H3|LI|BLOCKQUOTE)$/.test(e.tagName))e=e.parentElement;return e||document.body;}" +
+                    "window.stomakeUpdateFormat=function(){try{remember();var e=active(),b=block(e),cs=getComputedStyle(e),bs=getComputedStyle(b),px=parseFloat(cs.fontSize)||16,pt=Math.round(px*.75),family=(cs.fontFamily||'Garamond').split(',')[0].replace(/[\"']/g,'').trim();var dec=(cs.textDecorationLine||cs.textDecoration||'').toLowerCase();var weight=parseInt(cs.fontWeight,10)||400;var tag=e.tagName||'';var btag=(b.tagName||'P').toLowerCase();window.stomakeBridge.selectionChanged(String(pt),family,weight>=600||!!(e.closest&&e.closest('b,strong')),cs.fontStyle==='italic'||!!(e.closest&&e.closest('i,em')),dec.indexOf('underline')>=0||!!(e.closest&&e.closest('u')),dec.indexOf('line-through')>=0||!!(e.closest&&e.closest('s,strike,del')),bs.textAlign||'left',btag);}catch(x){}};" +
+                    "window.stomakeCommand=function(c,v){restore();document.execCommand('styleWithCSS',false,true);document.execCommand(c,false,v);remember();window.stomakeUpdateFormat();};" +
+                    "window.stomakeSetFont=function(f){restore();document.execCommand('styleWithCSS',false,true);document.execCommand('fontName',false,f);remember();window.stomakeUpdateFormat();};" +
+                    "window.stomakeSetFontSize=function(pt){restore();var s=window.getSelection();if(!s||!s.rangeCount)return;var r=s.getRangeAt(0).cloneRange();if(!r.collapsed){var walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode()){var n=walker.currentNode;try{if(n.nodeValue&&n.nodeValue.length&&r.intersectsNode(n))nodes.push(n);}catch(x){}}var spans=[];nodes.forEach(function(n){var start=n===r.startContainer?r.startOffset:0;var end=n===r.endContainer?r.endOffset:n.nodeValue.length;start=Math.max(0,Math.min(start,n.nodeValue.length));end=Math.max(start,Math.min(end,n.nodeValue.length));if(end<=start)return;var part=n;if(start>0)part=n.splitText(start);if(end-start<part.nodeValue.length)part.splitText(end-start);var span=document.createElement('span');span.style.fontSize=pt+'pt';part.parentNode.insertBefore(span,part);span.appendChild(part);spans.push(span);});if(spans.length){var nr=document.createRange();nr.setStartBefore(spans[0]);nr.setEndAfter(spans[spans.length-1]);s.removeAllRanges();s.addRange(nr);}}else{document.execCommand('styleWithCSS',false,false);document.execCommand('fontSize',false,'7');var a=s.anchorNode,e=a?(a.nodeType===3?a.parentElement:a):null;var f=e&&e.closest?e.closest('font[size=7]'):null;if(f){var span=document.createElement('span');span.style.fontSize=pt+'pt';while(f.firstChild)span.appendChild(f.firstChild);f.parentNode.replaceChild(span,f);}}remember();window.stomakeUpdateFormat();};" +
+                    "document.addEventListener('selectionchange',function(){remember();window.requestAnimationFrame(window.stomakeUpdateFormat);});" +
+                    "document.addEventListener('keyup',function(){remember();window.stomakeUpdateFormat();});" +
+                    "document.addEventListener('mouseup',function(){remember();window.stomakeUpdateFormat();});" +
+                    "document.addEventListener('input',function(){remember();window.stomakeBridge.inputChanged();window.stomakeUpdateFormat();});" +
+                    "window.stomakeUpdateFormat();" +
+                    "})()";
+        }
+
+        private String editorHtml(String body) {
+            String theme = editorThemeCss(currentTheme());
+            return "<!doctype html><html><head><meta charset='utf-8'><style>" +
+                    "html,body{margin:0;min-height:100%;background:#181a24;color:#e9e7ef;}" +
+                    "body{box-sizing:border-box;min-height:100vh;font-family:Garamond,serif;font-size:12pt;line-height:1.75;padding:34px 48px;max-width:100%;outline:none;border:0;}" +
+                    "p{margin:0 0 1em}h1,h2,h3{line-height:1.25;color:inherit}img{max-width:100%;height:auto}a{color:#b8a8ff}" + theme +
+                    "</style></head><body contenteditable='true' spellcheck='true'>" + body + "</body></html>";
         }
 
         private void insertChapterImage() {
@@ -593,7 +788,7 @@ public final class MainView extends BorderPane {
             current = chapter;
             titleField.setText(chapter.title());
             String body = chapter.html() == null || chapter.html().isBlank() ? escapeHtml(chapter.content()).replace("\n", "<br>") : chapter.html();
-            String html = "<!doctype html><html><head><meta charset='utf-8'><style>body{font-family:Garamond,serif;font-size:12pt;line-height:1.75;color:#24242b;padding:32px 40px;max-width:100%;outline:none}p{margin:0 0 1em}h1,h2,h3{line-height:1.25}img{max-width:100%;height:auto}</style></head><body>" + body + "</body></html>";
+            String html = editorHtml(body);
             engine.loadContent(html);
             status.setText("Menyunting · " + chapter.title());
         }
@@ -919,7 +1114,11 @@ public final class MainView extends BorderPane {
         TextField roleplay = new TextField(); TextField writer = new TextField();
         ComboBox<String> theme = new ComboBox<>(); theme.getItems().addAll("Dark","Light","Warm Light","Slate");
         try { theme.setValue(repo.setting("theme","Dark")); } catch(Exception ignored) { theme.setValue("Dark"); }
-        theme.setOnAction(e -> applyTheme(theme.getValue()));
+        theme.setOnAction(e -> {
+            applyTheme(theme.getValue());
+            try { repo.setSetting("theme", theme.getValue()); }
+            catch (Exception ex) { error("Tema", ex); }
+        });
         try { roleplay.setText(repo.setting("roleplay_model", OllamaClient.RP_UNCENSORED)); writer.setText(repo.setting("writer_model", "qwen2.5:3b")); }
         catch (Exception ignored) { roleplay.setText(OllamaClient.RP_UNCENSORED); writer.setText("qwen2.5:3b"); }
         ComboBox<String> presets = new ComboBox<>();
@@ -975,6 +1174,7 @@ public final class MainView extends BorderPane {
         if("Light".equalsIgnoreCase(name))getStyleClass().add("light-theme");
         else if("Warm Light".equalsIgnoreCase(name))getStyleClass().add("warm-theme");
         else if("Slate".equalsIgnoreCase(name))getStyleClass().add("slate-theme");
+        if (activeEditor != null) activeEditor.applyEditorTheme(name);
     }
 
     private Node modelInfo(String title, String model, String description) {
@@ -1054,10 +1254,30 @@ public final class MainView extends BorderPane {
     }
     @FunctionalInterface private interface ThrowingAction { void run() throws Exception; }
 
+    private record EditorFormatState(int fontSize, String fontFamily, boolean bold, boolean italic,
+                                     boolean underline, boolean strike, String alignment, String blockTag) { }
+
     public static final class EditorBridge {
         private final Runnable onChange;
-        public EditorBridge(Runnable onChange) { this.onChange = onChange; }
+        private final Consumer<EditorFormatState> onSelection;
+        public EditorBridge(Runnable onChange, Consumer<EditorFormatState> onSelection) {
+            this.onChange = onChange;
+            this.onSelection = onSelection;
+        }
         public void inputChanged() { onChange.run(); }
+        public void selectionChanged(String size, String family, boolean bold, boolean italic,
+                                     boolean underline, boolean strike, String alignment, String blockTag) {
+            int parsed = 12;
+            try { parsed = (int) Math.round(Double.parseDouble(size)); } catch (Exception ignored) { }
+            onSelection.accept(new EditorFormatState(parsed, family == null ? "Garamond" : family,
+                    bold, italic, underline, strike, alignment == null ? "left" : alignment,
+                    blockTag == null ? "p" : blockTag));
+        }
+    }
+
+    private static String jsQuote(String value) {
+        if (value == null) return "null";
+        return "'" + value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r") + "'";
     }
 
     private static String escapeHtml(String s) {

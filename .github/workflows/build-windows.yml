@@ -1,4 +1,4 @@
-name: Build Stomake 2.2.1 Windows
+name: Build Stomake 2.2.2 Windows
 
 on:
   push:
@@ -76,7 +76,7 @@ jobs:
       - name: Upload Windows application
         uses: actions/upload-artifact@v7
         with:
-          name: Stomake-2.2.1-Windows-x64
+          name: Stomake-2.2.2-Windows-x64
           path: |
             dist/Stomake-*-Windows-x64.zip
             dist/SHA256SUMS.txt

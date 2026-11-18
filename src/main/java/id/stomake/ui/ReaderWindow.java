@@ -47,6 +47,15 @@ public final class ReaderWindow {
         Label title = new Label("✦  " + project.title());
         title.getStyleClass().add("reader-heading");
 
+        Button backToEditor = new Button("←  Keluar dari Mode Baca");
+        backToEditor.getStyleClass().add("button-primary");
+        backToEditor.setTooltip(new javafx.scene.control.Tooltip("Tutup mode baca dan kembali ke jendela Stomake sebelumnya"));
+        backToEditor.setOnAction(event -> {
+            reader.close();
+            owner.toFront();
+            owner.requestFocus();
+        });
+
         Button tocToggle = new Button("☰  Sembunyikan Daftar Isi");
         tocToggle.getStyleClass().add("button-quiet");
         ComboBox<String> themePicker = new ComboBox<>();
@@ -61,7 +70,7 @@ public final class ReaderWindow {
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox toolbar = new HBox(12, title, spacer, tocToggle, new Separator(), new Label("Tema"), themePicker);
+        HBox toolbar = new HBox(12, backToEditor, title, spacer, tocToggle, new Separator(), new Label("Tema"), themePicker);
         toolbar.setAlignment(Pos.CENTER_LEFT);
         toolbar.setPadding(new Insets(11, 18, 11, 18));
         toolbar.getStyleClass().add("reader-toolbar");
@@ -126,6 +135,12 @@ public final class ReaderWindow {
             }
         });
 
+        reader.setOnHidden(event -> {
+            if (owner.isShowing()) {
+                owner.toFront();
+                owner.requestFocus();
+            }
+        });
         reader.setScene(scene);
         reader.setMinWidth(720);
         reader.setMinHeight(500);

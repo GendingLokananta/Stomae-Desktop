@@ -25,7 +25,7 @@ $RequiredSources = @(
 foreach ($Source in $RequiredSources) {
     $SourcePath = Join-Path $Root $Source
     if (-not (Test-Path $SourcePath)) {
-        throw "Required source file is missing: $Source. The GitHub repository does not contain this file. Replace the repository contents with the complete 2.2.1 source and commit the Java data package."
+        throw "Required source file is missing: $Source. The GitHub repository does not contain this file. Replace the repository contents with the complete 2.2.2 source and commit the Java data package."
     }
     # Catch broad .gitignore patterns such as 'data/' that silently omit
     # src/main/java/id/stomake/data/*.java from git add / GitHub uploads.

@@ -114,8 +114,28 @@
 .editor-toolbar { -fx-background-color: #191c27; -fx-background-radius: 9px; -fx-padding: 7px; -fx-border-color: #2b2e3a; -fx-border-radius: 9px; }
 .format-button { -fx-padding: 7 10; -fx-min-width: 32px; }
 .small-icon-button { -fx-padding: 6 9; }
-.writing-webview { -fx-border-color: #303341; -fx-border-radius: 8px; }
-.writing-webview .web-view { -fx-background-color: #f8f7f4; }
+.writing-webview { -fx-background-color: #181a24; -fx-border-color: #303341; -fx-border-radius: 8px; }
+.writing-webview .web-view { -fx-background-color: #181a24; }
+.editor-action-toolbar { -fx-background-color: transparent; -fx-padding: 0 2px 2px 2px; }
+.format-toggle {
+    -fx-background-color: #202331;
+    -fx-text-fill: #c7c8d4;
+    -fx-background-radius: 9px;
+    -fx-padding: 7 11;
+    -fx-min-width: 34px;
+    -fx-cursor: hand;
+}
+.format-toggle:hover { -fx-background-color: #2b2e3d; -fx-text-fill: white; }
+.format-toggle:selected {
+    -fx-background-color: #493b70;
+    -fx-text-fill: #ffffff;
+    -fx-border-color: #9b82f4;
+    -fx-border-radius: 9px;
+    -fx-border-width: 1px;
+}
+.font-size-control { -fx-font-size: 12px; -fx-pref-width: 82px; }
+.font-size-control .text-field { -fx-font-size: 12px; }
+.font-size-control .increment-arrow-button, .font-size-control .decrement-arrow-button { -fx-pref-width: 18px; }
 .bible-layout { -fx-spacing: 16px; }
 .profile-editor, .character-chat-panel { -fx-background-color: #181b26; -fx-background-radius: 14px; -fx-padding: 14px; -fx-border-color: #2b2e3a; -fx-border-radius: 14px; }
 .panel-heading { -fx-text-fill: #efedf8; -fx-font-weight: bold; -fx-font-size: 14px; }
@@ -359,3 +379,9 @@
 .reader-toc { -fx-background-color: #171a24; -fx-control-inner-background: #171a24; }
 .reader-toc .list-cell { -fx-text-fill: #d3d1df; -fx-background-color: #171a24; -fx-padding: 10 12; }
 .reader-toc .list-cell:selected { -fx-background-color: #302a49; -fx-text-fill: #e5dcff; }
+
+/* 2.2.2 editor typography controls: fixed-size toolbar indicators and visible toggle states. */
+.app-root.light-theme .writing-webview, .app-root.light-theme .writing-webview .web-view { -fx-background-color: #f6f7fb; }
+.app-root.warm-theme .writing-webview, .app-root.warm-theme .writing-webview .web-view { -fx-background-color: #f4eee4; }
+.app-root.slate-theme .writing-webview, .app-root.slate-theme .writing-webview .web-view { -fx-background-color: #26313d; }
+.app-root.light-theme .format-toggle:selected, .app-root.warm-theme .format-toggle:selected, .app-root.slate-theme .format-toggle:selected { -fx-background-color: #6756a4; -fx-text-fill: white; }
